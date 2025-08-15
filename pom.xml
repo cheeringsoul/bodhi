@@ -11,6 +11,7 @@
   <url>http://maven.apache.org</url>
     <modules>
         <module>tg-harvester</module>
+        <module>market-sentiment</module>
     </modules>
 
     <properties>
