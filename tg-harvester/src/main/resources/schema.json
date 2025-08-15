@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "name": "TelegramMessage",
+  "fields": [
+    {"name": "message_id", "type": "long"},
+    {"name": "chat_id", "type": "long"},
+    {"name": "sender_id", "type": "long"},
+    {"name": "timestamp", "type": "string"},
+    {"name": "message_text", "type": ["null", "string"], "default": null},
+    {
+      "name": "links",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "default": []
+    },
+    {
+      "name": "link_data",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "CrawledData",
+          "fields": [
+            {"name": "url", "type": "string"},
+            {"name": "title", "type": ["null", "string"], "default": null},
+            {"name": "content", "type": ["null", "string"], "default": null}
+          ]
+        }
+      },
+      "default": []
+    }
+  ]
+}

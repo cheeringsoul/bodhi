@@ -1,0 +1,37 @@
+{
+  "version": "1.0.0",
+  "super_group": {
+    "default_parser": "ChatMessageParser",
+    "ignore_bot": {
+      "default": true,
+      "exclude": [
+        -1001864611306,
+        -1002065600367
+      ]
+    }
+  },
+  "news_channel": {
+    "default_parser": "ChannelNewsParser",
+    "extract_link": {
+      "default": false,
+      "include": [
+        -1001735732363,
+        -1001525105897,
+        -1001515681710,
+        -1001380566582
+      ]
+    }
+  },
+  "ignored_chats": [
+    -1001198046393,
+    -1001570026694,
+    -1001469573918,
+    -1001341930464,
+    -1001594723240,
+    -1001884815563,
+    -1001107448561,
+    -1001492060815,
+    -1001572924402,
+    -1001483358666
+  ]
+}

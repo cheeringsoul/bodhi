@@ -1,0 +1,3 @@
+[submodule "external/tdlib"]
+	path = external/tdlib
+	url = https://github.com/tdlib/td.git
