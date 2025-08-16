@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMessage> {
+public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<AnalysisResult, ChatMessage> {
     static private final List<String> IGNORED_MESSAGES = List.of("[picture]", "[video]", "[voice note]", "[animation]",
             "[audio]", "[sticker]", "[document]", "[location]", "[venue]", "[contact]");
 

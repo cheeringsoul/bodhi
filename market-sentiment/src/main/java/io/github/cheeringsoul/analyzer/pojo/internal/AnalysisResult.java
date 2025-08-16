@@ -1,4 +1,6 @@
 package io.github.cheeringsoul.analyzer.pojo.internal;
 
-public class AnalysisResult {
+import io.github.cheeringsoul.analyzer.pojo.DataView;
+
+public class AnalysisResult implements DataView {
 }
