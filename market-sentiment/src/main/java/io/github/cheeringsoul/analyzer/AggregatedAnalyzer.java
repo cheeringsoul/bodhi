@@ -1,8 +1,10 @@
 package io.github.cheeringsoul.analyzer;
 
-import io.github.cheeringsoul.analyzer.pojo.DataView;
+import io.github.cheeringsoul.analyzer.pojo.AnalysisResult;
 import io.github.cheeringsoul.persistence.pojo.Base;
 
-public interface AggregatedAnalyzer<E extends DataView, T extends Base> {
-    E aggregate(T data);
+import java.util.Optional;
+
+public interface AggregatedAnalyzer<E extends Base, T extends AnalysisResult> {
+    Optional<T> aggregate(E data);
 }
