@@ -1,6 +1,6 @@
-package io.github.cheeringsoul.dao;
+package io.github.cheeringsoul.persistence.dao;
 
-import io.github.cheeringsoul.pojo.ChatMessage;
+import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import org.jdbi.v3.sqlobject.config.RegisterBeanMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.customizer.BindBean;

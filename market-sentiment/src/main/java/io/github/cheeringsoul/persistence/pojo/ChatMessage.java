@@ -1,4 +1,4 @@
-package io.github.cheeringsoul.pojo;
+package io.github.cheeringsoul.persistence.pojo;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,7 +18,7 @@ public class ChatMessage extends Base {
     private String groupName;
     private long senderId;
     private String messageText;
-    private List<String> urls;   // 映射 PostgreSQL TEXT[]
+    private List<String> urls;
     private OffsetDateTime timestamp;
 
     @ColumnName("message_id")
