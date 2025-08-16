@@ -1,5 +1,7 @@
 package io.github.cheeringsoul.analyzer;
 
-public interface AggregatedAnalyzer {
-    AnalysisResult aggregate()
+import io.github.cheeringsoul.pojo.Base;
+
+public interface AggregatedAnalyzer<T extends Base> {
+    AnalysisResult aggregate(T data);
 }
