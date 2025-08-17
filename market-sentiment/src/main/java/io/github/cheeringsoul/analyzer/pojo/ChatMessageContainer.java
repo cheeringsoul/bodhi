@@ -1,11 +1,13 @@
 package io.github.cheeringsoul.analyzer.pojo;
 
+import lombok.Getter;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+@Getter
 public class ChatMessageContainer {
     private final List<Pair<Long, String>> messages = new ArrayList<>();
 
@@ -21,10 +23,6 @@ public class ChatMessageContainer {
                 messages.add(Pair.of(senderId, text));
             }
         }
-    }
-
-    public List<Pair<Long, String>> getMessages() {
-        return messages;
     }
 
     public void clear() {

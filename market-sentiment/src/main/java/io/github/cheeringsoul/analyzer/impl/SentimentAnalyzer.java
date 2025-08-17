@@ -2,16 +2,15 @@ package io.github.cheeringsoul.analyzer.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.cheeringsoul.Utils;
 import io.github.cheeringsoul.analyzer.pojo.IsFinancialRelated;
 import io.github.cheeringsoul.analyzer.pojo.MarketSentiment;
+import io.github.cheeringsoul.analyzer.pojo.SimpleChatMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.*;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,8 +40,10 @@ public class SentimentAnalyzer {
         REPEATED_PUNC_PATTERN = Pattern.compile("(" + allowedRegex + ")\\1+");
     }
 
-    private final OllamaClient ollamaClient;
+    private int windowSize = 10;
     private final DsClient dsClient;
+    private final OllamaClient ollamaClient;
+    private final List<SimpleChatMessage> lastMessages = new ArrayList<>();
 
     public SentimentAnalyzer(String model) {
         ollamaClient = new OllamaClient(model);
@@ -90,7 +91,20 @@ public class SentimentAnalyzer {
         return Pair.of(text, ollamaClient.process(text));
     }
 
-    public Map<MarketSentiment, Integer> analyze(List<Pair<Long, String>> messages) {
-        // todo
+    public Map<MarketSentiment, Integer> analyze(List<SimpleChatMessage> messages) {
+        for (int i=0;i<windowSize;i++) {
+
+        }
+        List<SimpleChatMessage> data = new ArrayList<>();
+        Iterator<SimpleChatMessage> iterator = messages.iterator();
+        while (iterator.hasNext()) {
+            SimpleChatMessage message = iterator.next();
+            if (message.text() == null || message.text().isEmpty()) {
+                continue;
+            }
+            if (!Utils.SymbolExtractor.INSTANCE.extractCrypto(message.text()).isEmpty()) {
+
+            }
+        }
     }
 }
