@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class SentimentAnalyzer {
     private static List<String> CRYPTO_TERMS;
-    private static final Pattern repeatedPuncPattern;
+    private static final Pattern REPEATED_PUNC_PATTERN;
     private static final Set<Character> ALLOWED_PUNCTUATION = new HashSet<>();
 
     static {
@@ -38,7 +38,7 @@ public class SentimentAnalyzer {
             ALLOWED_PUNCTUATION.add(c);
         }
         var allowedRegex = "[\\.,!\\?;:。，？！]";
-        repeatedPuncPattern = Pattern.compile("(" + allowedRegex + ")\\1+");
+        REPEATED_PUNC_PATTERN = Pattern.compile("(" + allowedRegex + ")\\1+");
     }
 
     private final OllamaClient ollamaClient;
@@ -54,7 +54,7 @@ public class SentimentAnalyzer {
             return "";
         }
         // 1. 替换连续重复的允许标点为一个
-        Matcher matcher = repeatedPuncPattern.matcher(text);
+        Matcher matcher = REPEATED_PUNC_PATTERN.matcher(text);
         text = matcher.replaceAll("$1");
         // 2. 去掉非字母、非数字、非空格、非允许标点的字符
         StringBuilder sb = new StringBuilder();
