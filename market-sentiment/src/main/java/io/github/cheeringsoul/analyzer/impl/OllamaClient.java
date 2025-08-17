@@ -19,13 +19,13 @@ public class OllamaClient {
     private final HttpClient client;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public OllamaClient(String url, String model) {
-        this.url = url;
+    public OllamaClient(String model) {
+        this.url = System.getenv("OLLAMA_URL");
         this.model = model;
         this.client = HttpClient.newHttpClient();
     }
 
-    public IsFinancialRelated askOllama(String text) {
+    public IsFinancialRelated process(String text) {
         String prompt = String.format("\"%s\"，判断这句话是不是\"金融领域相关\"或者与\"加密货币、价格、趋势、经济\"相关，你只需要回答我\"是\"或\"不是\"不要解释原因", text);
         try {
             // 构建 JSON payload

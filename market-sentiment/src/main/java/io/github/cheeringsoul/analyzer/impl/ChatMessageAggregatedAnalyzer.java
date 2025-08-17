@@ -4,8 +4,10 @@ import static io.github.cheeringsoul.Utils.SymbolExtractor;
 import static io.github.cheeringsoul.Utils.TimeBucket;
 
 import io.github.cheeringsoul.analyzer.AggregatedAnalyzer;
+import io.github.cheeringsoul.analyzer.pojo.ChatMessageContainer;
 import io.github.cheeringsoul.analyzer.pojo.MarketActivity;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
@@ -16,16 +18,6 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
     private int intervalMinutes;
     private final MarketActivity marketActivity = new MarketActivity();
     private final MarketActivity result = new MarketActivity();
-
-    static class ChatMessageContainer {
-        private final Map<Long, String> messagesBySender = new LinkedHashMap<>();
-
-        void addMessage(Long senderId, String text) {
-            messagesBySender.put(senderId, text);
-        }
-
-    }
-
     private final ChatMessageContainer cachedMessages = new ChatMessageContainer();
 
     public ChatMessageAggregatedAnalyzer(int intervalMinutes) {

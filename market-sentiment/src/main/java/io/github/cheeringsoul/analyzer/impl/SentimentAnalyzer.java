@@ -3,12 +3,14 @@ package io.github.cheeringsoul.analyzer.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cheeringsoul.analyzer.pojo.IsFinancialRelated;
+import io.github.cheeringsoul.analyzer.pojo.MarketSentiment;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.*;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,6 +39,14 @@ public class SentimentAnalyzer {
         }
         var allowedRegex = "[\\.,!\\?;:。，？！]";
         repeatedPuncPattern = Pattern.compile("(" + allowedRegex + ")\\1+");
+    }
+
+    private final OllamaClient ollamaClient;
+    private final DsClient dsClient;
+
+    public SentimentAnalyzer(String model) {
+        ollamaClient = new OllamaClient(model);
+        dsClient = new DsClient();
     }
 
     private String cleanText(String text) {
@@ -77,8 +87,10 @@ public class SentimentAnalyzer {
     }
 
     private Pair<String, IsFinancialRelated> askOllama(String text) {
-
+        return Pair.of(text, ollamaClient.process(text));
     }
 
-
+    public Map<MarketSentiment, Integer> analyze(List<Pair<Long, String>> messages) {
+        // todo
+    }
 }
