@@ -179,7 +179,7 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
         Set<String> symbols = pair.getLeft();
         List<SimpleChatMessage> contextMessages = pair.getRight();
         // todo
-        deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
+        var result = deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
     }
 
     private String generatePrompt(Set<String> symbols, List<SimpleChatMessage> messages) {

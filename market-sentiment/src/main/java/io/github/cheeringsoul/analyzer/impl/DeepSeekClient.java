@@ -29,7 +29,7 @@ public class DeepSeekClient {
                   "messages": [
                     {
                       "role": "user",
-                      "content": "\\"%s\\"，上面这段话来自加密货币聊天群，你认为它反应了散户当前短期是看空还是看多的？你只需要回答我是看多还是看空，不要解释原因"
+                      "content": "%s"
                     }
                   ],
                   "stream": false
