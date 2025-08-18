@@ -15,8 +15,6 @@ public class MarketActivity extends AnalysisResult {
     private int messageCount;
     // symbol -> count, symbol提到的次数
     private final Map<String, Integer> relatedSymbols = new HashMap<>();
-    // senderId -> MarketSentiment
-    private final Map<Long, MarketSentiment> marketSentiments = new HashMap<>();
     // symbol被看多看空的次数
     private final Map<String, Map<MarketSentiment, Integer>> marketSentimentCounts = new HashMap<>();
     private Instant startTime;
@@ -31,18 +29,13 @@ public class MarketActivity extends AnalysisResult {
         endTime = null;
         messageCount = 0;
         relatedSymbols.clear();
-        marketSentiments.clear();
-    }
-
-    public void putMarketSentiment(Map<Long, MarketSentiment> marketSentiments) {
-        this.marketSentiments.putAll(marketSentiments);
+        marketSentimentCounts.clear();
     }
 
     public void copyTo(MarketActivity marketActivity) {
         marketActivity.reset();
         marketActivity.messageCount = this.messageCount;
         marketActivity.relatedSymbols.putAll(this.relatedSymbols);
-        marketActivity.marketSentiments.putAll(this.marketSentiments);
         marketActivity.startTime = this.startTime;
         marketActivity.endTime = this.endTime;
     }

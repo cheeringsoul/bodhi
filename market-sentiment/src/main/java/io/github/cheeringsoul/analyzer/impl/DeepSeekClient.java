@@ -11,18 +11,18 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 @Slf4j
-public class DsClient {
+public class DeepSeekClient {
     private static final String API_KEY = System.getenv("DS_API_KEY");
     private static final String BASE_URL = "https://api.deepseek.com";
     private final HttpClient client;
     private final ObjectMapper mapper;
 
-    public DsClient() {
+    public DeepSeekClient() {
         this.client = HttpClient.newHttpClient();
         this.mapper = new ObjectMapper();
     }
 
-    public MarketSentiment analyze(String text) {
+    public MarketSentiment askDeepSeek(String text) {
         String requestBody = """
                 {
                   "model": "deepseek-chat",
