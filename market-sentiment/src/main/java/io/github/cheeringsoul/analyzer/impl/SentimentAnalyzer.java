@@ -6,6 +6,7 @@ import io.github.cheeringsoul.Utils;
 import io.github.cheeringsoul.analyzer.pojo.IsFinancialRelated;
 import io.github.cheeringsoul.analyzer.pojo.MarketSentiment;
 import io.github.cheeringsoul.analyzer.pojo.SimpleChatMessage;
+import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -91,20 +92,39 @@ public class SentimentAnalyzer {
         return Pair.of(text, ollamaClient.process(text));
     }
 
-    public Map<MarketSentiment, Integer> analyze(List<SimpleChatMessage> messages) {
-        for (int i=0;i<windowSize;i++) {
-
+    public Pair<Set<String>, List<SimpleChatMessage>> findWithContext(List<SimpleChatMessage> messages, int n) {
+        List<SimpleChatMessage> result = new ArrayList<>();
+        List<String> relatedSymbols = new ArrayList<>();
+        for (int i = 0; i < messages.size(); i++) {
+            SimpleChatMessage item = messages.get(i);
+            var symbols = Utils.SymbolExtractor.INSTANCE.extractCrypto(item.text());
+            relatedSymbols.addAll(symbols);
+            if (!symbols.isEmpty()) {
+                int start = Math.max(0, i - n);
+                int end = Math.min(messages.size(), i + n + 1);
+                result.addAll(messages.subList(start, end));
+            }
         }
-        List<SimpleChatMessage> data = new ArrayList<>();
+        Set<String> set = new HashSet<>(relatedSymbols);
+        return Pair.of(set, result);
+    }
+
+    public Map<MarketSentiment, Integer> analyze(List<SimpleChatMessage> messages) {
         Iterator<SimpleChatMessage> iterator = messages.iterator();
         while (iterator.hasNext()) {
-            SimpleChatMessage message = iterator.next();
-            if (message.text() == null || message.text().isEmpty()) {
-                continue;
-            }
-            if (!Utils.SymbolExtractor.INSTANCE.extractCrypto(message.text()).isEmpty()) {
-
+            SimpleChatMessage item = iterator.next();
+            String newItem = cleanText(item.text());
+            if (newItem.isEmpty()) {
+                iterator.remove();
+            } else {
+                item.text(newItem);
             }
         }
+        if (messages.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Pair<Set<String>, List<SimpleChatMessage>> pair = findWithContext(messages, windowSize);
+        Set<String> symbols = pair.getLeft();
+        List<SimpleChatMessage> contextMessages = pair.getRight();
     }
 }

@@ -1,4 +1,15 @@
 package io.github.cheeringsoul.analyzer.pojo;
 
-public record SimpleChatMessage(Long sender, String text) {
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
+@Getter
+@Setter
+@Accessors(fluent = true)
+@AllArgsConstructor
+public class SimpleChatMessage {
+    Long sender;
+    String text;
 }

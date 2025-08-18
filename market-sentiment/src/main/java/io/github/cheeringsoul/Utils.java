@@ -83,8 +83,8 @@ public class Utils {
 
             List<String> results = new ArrayList<>();
 
-            // 1. 匹配所有英文单词（长度 2~10 避免单字母干扰）
-            Pattern wordPattern = Pattern.compile("[A-Za-z]{2,10}");
+            // 1. 匹配所有英文单词（长度 2~12 避免单字母干扰）
+            Pattern wordPattern = Pattern.compile("[A-Za-z]{2,12}");
             Matcher wordMatcher = wordPattern.matcher(text);
             while (wordMatcher.find()) {
                 String word = wordMatcher.group();

@@ -13,10 +13,12 @@ import java.util.Map;
 @Accessors(fluent = true)
 public class MarketActivity extends AnalysisResult {
     private int messageCount;
-    // symbol -> count
+    // symbol -> count, symbol提到的次数
     private final Map<String, Integer> relatedSymbols = new HashMap<>();
     // senderId -> MarketSentiment
     private final Map<Long, MarketSentiment> marketSentiments = new HashMap<>();
+    // symbol被看多看空的次数
+    private final Map<String, Map<MarketSentiment, Integer>> marketSentimentCounts = new HashMap<>();
     private Instant startTime;
     private Instant endTime;
 
