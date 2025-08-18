@@ -161,8 +161,8 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
         return Pair.of(set, result);
     }
 
-    private Map<String, Map<MarketSentiment, Integer>> analyze(ChatMessageBucket cheatMessageBucket) {
-        if (cheatMessageBucket.isEmpty()) {
+    private Map<String, Map<MarketSentiment, Integer>> analyze(List<SimpleChatMessage> messages) {
+        if (messages.isEmpty()) {
             return Collections.emptyMap();
         }
         Iterator<SimpleChatMessage> iterator = cachedMessages.iterator();
