@@ -1,4 +1,4 @@
-package io.github.cheeringsoul.analyzer.impl;
+package io.github.cheeringsoul.analyzer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

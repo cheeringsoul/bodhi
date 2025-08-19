@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cheeringsoul.Utils;
 import io.github.cheeringsoul.analyzer.Analyzer;
+import io.github.cheeringsoul.analyzer.DeepSeekClient;
 import io.github.cheeringsoul.analyzer.pojo.*;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import lombok.extern.slf4j.Slf4j;
