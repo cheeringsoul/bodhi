@@ -11,7 +11,7 @@ import java.util.Map;
 @Getter
 @Setter
 @Accessors(fluent = true)
-public class MarketActivity extends AnalysisResult {
+public class ChatMessageAnalysisResult extends AnalysisResult {
     private int messageCount;
     // symbol -> count, symbol提到的次数
     private final Map<String, Integer> relatedSymbols = new HashMap<>();
@@ -32,12 +32,12 @@ public class MarketActivity extends AnalysisResult {
         marketSentimentCounts.clear();
     }
 
-    public void copyTo(MarketActivity marketActivity) {
-        marketActivity.reset();
-        marketActivity.messageCount = this.messageCount;
-        marketActivity.relatedSymbols.putAll(this.relatedSymbols);
-        marketActivity.startTime = this.startTime;
-        marketActivity.endTime = this.endTime;
+    public void copyTo(ChatMessageAnalysisResult chatMessageAnalysisResult) {
+        chatMessageAnalysisResult.reset();
+        chatMessageAnalysisResult.messageCount = this.messageCount;
+        chatMessageAnalysisResult.relatedSymbols.putAll(this.relatedSymbols);
+        chatMessageAnalysisResult.startTime = this.startTime;
+        chatMessageAnalysisResult.endTime = this.endTime;
     }
 
 }

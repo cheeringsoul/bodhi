@@ -6,7 +6,7 @@ import static io.github.cheeringsoul.Utils.TimeBucket;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cheeringsoul.Utils;
-import io.github.cheeringsoul.analyzer.AggregatedAnalyzer;
+import io.github.cheeringsoul.analyzer.Analyzer;
 import io.github.cheeringsoul.analyzer.pojo.*;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
-public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMessage, MarketActivity> {
+public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAnalysisResult> {
     private static List<String> CRYPTO_TERMS;
     private static final Pattern REPEATED_PUNC_PATTERN;
     private static final Set<Character> ALLOWED_PUNCTUATION = new HashSet<>();
@@ -29,7 +29,7 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
     static {
         // load crypto terms from JSON file
         var mapper = new ObjectMapper();
-        try (InputStream inputStream = ChatMessageAggregatedAnalyzer.class.getClassLoader().getResourceAsStream("crypto_terms.json")) {
+        try (InputStream inputStream = ChatMessageAnalyzer.class.getClassLoader().getResourceAsStream("crypto_terms.json")) {
             CRYPTO_TERMS = mapper.readValue(inputStream, new TypeReference<>() {
             });
             if (CRYPTO_TERMS.isEmpty()) {
@@ -51,33 +51,33 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
 
     private final DeepSeekClient deepSeekClient;
     private final List<SimpleChatMessage> cachedMessages = new ArrayList<>();
-    private final MarketActivity marketActivity = new MarketActivity();
-    private final MarketActivity result = new MarketActivity();
+    private final ChatMessageAnalysisResult chatMessageAnalysisResult = new ChatMessageAnalysisResult();
+    private final ChatMessageAnalysisResult result = new ChatMessageAnalysisResult();
 
-    public ChatMessageAggregatedAnalyzer(int intervalMinutes) {
+    public ChatMessageAnalyzer(int intervalMinutes) {
         this.intervalMinutes = intervalMinutes;
         deepSeekClient = new DeepSeekClient();
     }
 
     @Override
-    public Optional<MarketActivity> aggregate(ChatMessage data) {
+    public Optional<ChatMessageAnalysisResult> analysis(ChatMessage data) {
         var shouldYield = false;
-        if (marketActivity.endTime() != null && TimeBucket.isSameBucket(data.timestamp(), marketActivity.endTime(), intervalMinutes)) {
-            analyze(cachedMessages);
+        if (chatMessageAnalysisResult.endTime() != null && TimeBucket.isSameBucket(data.timestamp(), chatMessageAnalysisResult.endTime(), intervalMinutes)) {
+            chatMessageAnalysisResult.marketSentimentCounts().putAll(process(cachedMessages));
             cachedMessages.clear();
-            marketActivity.copyTo(result);
-            marketActivity.reset();
+            chatMessageAnalysisResult.copyTo(result);
+            chatMessageAnalysisResult.reset();
             shouldYield = true;
         }
-        if (marketActivity.startTime() == null) {
-            marketActivity.startTime(data.timestamp());
+        if (chatMessageAnalysisResult.startTime() == null) {
+            chatMessageAnalysisResult.startTime(data.timestamp());
         }
-        marketActivity.endTime(data.timestamp());
-        marketActivity.incrementMessageCount();
+        chatMessageAnalysisResult.endTime(data.timestamp());
+        chatMessageAnalysisResult.incrementMessageCount();
         if (!Objects.equals(data.messageText(), "") && !IGNORED_MESSAGES.contains(data.messageText())) {
             List<String> symbols = SymbolExtractor.INSTANCE.extractCrypto(data.messageText());
             for (var symbol : symbols) {
-                marketActivity.relatedSymbols().merge(symbol, 1, Integer::sum);
+                chatMessageAnalysisResult.relatedSymbols().merge(symbol, 1, Integer::sum);
             }
             addMessage(new SimpleChatMessage(data.senderId(), data.messageText()));
         }
@@ -155,7 +155,8 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
         return Pair.of(set, result);
     }
 
-    private Map<String, Map<MarketSentiment, Integer>> analyze(List<SimpleChatMessage> messages) {
+    private Map<String, Map<MarketSentiment, Integer>> process(List<SimpleChatMessage> messages) {
+        Map<String, Map<MarketSentiment, Integer>> result = new HashMap<>();
         if (messages.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -173,8 +174,8 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
         Set<String> symbols = pair.getLeft();
         List<SimpleChatMessage> contextMessages = pair.getRight();
         // todo
-        var result = deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
-        return null;
+        var response = deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
+        return result;
     }
 
     private String generatePrompt(Set<String> symbols, List<SimpleChatMessage> messages) {

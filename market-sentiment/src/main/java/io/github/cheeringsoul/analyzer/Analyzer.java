@@ -5,6 +5,6 @@ import io.github.cheeringsoul.persistence.pojo.Base;
 
 import java.util.Optional;
 
-public interface AggregatedAnalyzer<E extends Base, T extends AnalysisResult> {
-    Optional<T> aggregate(E data);
+public interface Analyzer<E extends Base, T extends AnalysisResult> {
+    Optional<T> analysis(E data);
 }
