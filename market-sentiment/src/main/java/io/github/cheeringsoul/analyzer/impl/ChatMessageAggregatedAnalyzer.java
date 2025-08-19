@@ -53,11 +53,9 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
     private final List<SimpleChatMessage> cachedMessages = new ArrayList<>();
     private final MarketActivity marketActivity = new MarketActivity();
     private final MarketActivity result = new MarketActivity();
-    private final OllamaClient ollamaClient;
 
     public ChatMessageAggregatedAnalyzer(int intervalMinutes) {
         this.intervalMinutes = intervalMinutes;
-        ollamaClient = new OllamaClient("deepseek-r1:1.5b");
         deepSeekClient = new DeepSeekClient();
     }
 
@@ -65,7 +63,7 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
     public Optional<MarketActivity> aggregate(ChatMessage data) {
         var shouldYield = false;
         if (marketActivity.endTime() != null && TimeBucket.isSameBucket(data.timestamp(), marketActivity.endTime(), intervalMinutes)) {
-            // todo get market sentiment
+            analyze(cachedMessages);
             cachedMessages.clear();
             marketActivity.copyTo(result);
             marketActivity.reset();
@@ -140,10 +138,6 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
         return Pair.of(text, IsFinancialRelated.UNKNOWN);
     }
 
-    private Pair<String, IsFinancialRelated> askOllama(String text) {
-        return Pair.of(text, ollamaClient.process(text));
-    }
-
     private Pair<Set<String>, List<SimpleChatMessage>> findWithContext(List<SimpleChatMessage> messages, int n) {
         List<SimpleChatMessage> result = new ArrayList<>();
         List<String> relatedSymbols = new ArrayList<>();
@@ -180,6 +174,7 @@ public class ChatMessageAggregatedAnalyzer implements AggregatedAnalyzer<ChatMes
         List<SimpleChatMessage> contextMessages = pair.getRight();
         // todo
         var result = deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
+        return null;
     }
 
     private String generatePrompt(Set<String> symbols, List<SimpleChatMessage> messages) {

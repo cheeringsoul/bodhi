@@ -22,7 +22,7 @@ public class DeepSeekClient {
         this.mapper = new ObjectMapper();
     }
 
-    public MarketSentiment askDeepSeek(String text) {
+    public String askDeepSeek(String text) {
         String requestBody = """
                 {
                   "model": "deepseek-chat",
@@ -47,13 +47,7 @@ public class DeepSeekClient {
             JsonNode root = mapper.readTree(response.body());
             String content = root.path("choices").get(0).path("message").path("content").asText();
             log.info("ask deepseek: {}, response: {}", text, content);
-            if ("看多".equals(content)) {
-                return MarketSentiment.BULLISH;
-            } else if ("看空".equals(content)) {
-                return MarketSentiment.BEARISH;
-            } else {
-                return MarketSentiment.NEUTRAL;
-            }
+            return content;
         } catch (Exception e) {
             log.error("Error processing request to DeepSeek: {}", e.getMessage());
             return null;
