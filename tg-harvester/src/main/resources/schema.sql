@@ -2,12 +2,12 @@ CREATE TABLE chat_messages
 (
     id           BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
     message_id   BIGINT,
-    chat_id      BIGINT      NOT NULL,
-    group_name   TEXT        NOT NULL,
-    sender_id    BIGINT      NOT NULL,
+    chat_id      BIGINT                              NOT NULL,
+    group_name   TEXT                                NOT NULL,
+    sender_id    BIGINT                              NOT NULL,
     message_text TEXT,
     urls         TEXT[],
-    timestamp    TIMESTAMPTZ NOT NULL,
+    timestamp    TIMESTAMPTZ                         NOT NULL,
     CONSTRAINT chat_messages_pk PRIMARY KEY (id)
 );
 
@@ -16,11 +16,11 @@ CREATE TABLE channel_news
 (
     id           BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
     message_id   BIGINT,
-    chat_id      BIGINT      NOT NULL,
-    group_name   TEXT        NOT NULL,
+    chat_id      BIGINT                              NOT NULL,
+    group_name   TEXT                                NOT NULL,
     message_text TEXT,
     urls         TEXT[],
-    timestamp    TIMESTAMPTZ NOT NULL,
+    timestamp    TIMESTAMPTZ                         NOT NULL,
     CONSTRAINT channel_news_pk PRIMARY KEY (id)
 );
 
@@ -31,7 +31,7 @@ CREATE TABLE link_content
     url                    TEXT,
     title                  TEXT,
     content                TEXT,
-    timestamp              TIMESTAMPTZ NOT NULL,
+    timestamp              TIMESTAMPTZ                         NOT NULL,
     CONSTRAINT link_content_pk PRIMARY KEY (id)
 );
 
@@ -42,4 +42,36 @@ CREATE TABLE config
     config    json                             NOT NULL,
     CONSTRAINT config_pk PRIMARY KEY (id),
     CONSTRAINT config_unique UNIQUE ("version")
+);
+
+----------------------------------------------------------------------
+
+CREATE TABLE message_summary
+(
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    message_count INT         NOT NULL,
+    start_time    TIMESTAMPTZ NOT NULL,
+    end_time      TIMESTAMPTZ NOT NULL
+);
+
+-- 每个 symbol 出现的次数
+CREATE TABLE related_symbol_count
+(
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    summary_id BIGINT NOT NULL REFERENCES message_summary (id) ON DELETE CASCADE,
+    symbol     TEXT   NOT NULL,
+    count      INT    NOT NULL,
+    UNIQUE (summary_id, symbol)
+);
+
+
+-- 每个 symbol 在不同情绪下的次数
+CREATE TABLE market_sentiment_count
+(
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    summary_id BIGINT           NOT NULL REFERENCES message_summary (id) ON DELETE CASCADE,
+    symbol     TEXT             NOT NULL,
+    sentiment  INT              NOT NULL,  -- 1: positive, 0: neutral, -1: negative
+    count      INT              NOT NULL,
+    UNIQUE (summary_id, symbol, sentiment)
 );

@@ -23,5 +23,4 @@ public interface ChatMessageDao {
 
     @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId ORDER BY timestamp DESC LIMIT :limit")
     List<ChatMessage> findRecentByChatId(@Bind("chatId") long chatId, @Bind("limit") int limit);
-    
 }
