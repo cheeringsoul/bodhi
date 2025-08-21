@@ -1,5 +1,7 @@
 package io.github.cheeringsoul;
 
+import io.github.cheeringsoul.analyzer.Analyzer;
+import io.github.cheeringsoul.analyzer.impl.ChatMessageAnalyzer;
 import io.github.cheeringsoul.analyzer.pojo.ChatMessageAnalysisResult;
 import io.github.cheeringsoul.persistence.dao.ChatMessageAnalysisDao;
 import io.github.cheeringsoul.persistence.dao.MarketSentimentDao;
@@ -9,6 +11,7 @@ public class ChatMessageAnalysisService {
     private final ChatMessageAnalysisDao summaryDao;
     private final RelatedSymbolDao relatedDao;
     private final MarketSentimentDao sentimentDao;
+    private final Analyzer chatMessageAnalyzer;
 
     public ChatMessageAnalysisService(ChatMessageAnalysisDao summaryDao,
                                       RelatedSymbolDao relatedDao,
@@ -16,6 +19,7 @@ public class ChatMessageAnalysisService {
         this.summaryDao = summaryDao;
         this.relatedDao = relatedDao;
         this.sentimentDao = sentimentDao;
+        this.chatMessageAnalyzer = new ChatMessageAnalyzer(20);
     }
 
     public long save(ChatMessageAnalysisResult result) {
