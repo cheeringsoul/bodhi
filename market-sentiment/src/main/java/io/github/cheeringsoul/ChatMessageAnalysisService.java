@@ -1,11 +1,17 @@
 package io.github.cheeringsoul;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import io.github.cheeringsoul.analyzer.Analyzer;
 import io.github.cheeringsoul.analyzer.impl.ChatMessageAnalyzer;
 import io.github.cheeringsoul.analyzer.pojo.ChatMessageAnalysisResult;
 import io.github.cheeringsoul.persistence.dao.ChatMessageAnalysisDao;
+import io.github.cheeringsoul.persistence.dao.ChatMessageDao;
 import io.github.cheeringsoul.persistence.dao.MarketSentimentDao;
 import io.github.cheeringsoul.persistence.dao.RelatedSymbolDao;
+import io.github.cheeringsoul.persistence.pojo.ChatMessage;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 public class ChatMessageAnalysisService {
     private final ChatMessageAnalysisDao summaryDao;
@@ -21,20 +27,24 @@ public class ChatMessageAnalysisService {
         this.sentimentDao = sentimentDao;
         this.chatMessageAnalyzer = new ChatMessageAnalyzer(20);
     }
+    public static Jdbi createJdbi() {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:postgresql://localhost:5432/ymy");
+        config.setUsername("ymy");
+        config.setPassword("");
 
-    public long save(ChatMessageAnalysisResult result) {
-        long summaryId = summaryDao.insert(result);
-
-        result.getRelatedSymbols().forEach((symbol, count) ->
-                relatedDao.insert(summaryId, symbol, count));
-
-        result.getMarketSentimentCounts().forEach((symbol, map) ->
-                map.forEach((sentiment, count) ->
-                        sentimentDao.insert(summaryId, symbol, sentiment.name(), count)));
-
-        return summaryId;
+        HikariDataSource ds = new HikariDataSource(config);
+        return Jdbi.create(ds);
     }
 
+    public static void main(String[] args) {
+        Jdbi jdbi = createJdbi();
+        jdbi.installPlugin(new SqlObjectPlugin());
+        ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
+        ChatMessage result = dao.findByIdGreaterThan(1L);
+        System.out.println(result);
+
+    }
 
 }
 

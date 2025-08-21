@@ -75,12 +75,12 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
         }
         chatMessageAnalysisResult.endTime(data.timestamp());
         chatMessageAnalysisResult.incrementMessageCount();
-        if (!Objects.equals(data.messageText(), "") && !IGNORED_MESSAGES.contains(data.messageText())) {
-            List<String> symbols = SymbolExtractor.INSTANCE.extractCrypto(data.messageText());
+        if (!Objects.equals(data.getMessageText(), "") && !IGNORED_MESSAGES.contains(data.getMessageText())) {
+            List<String> symbols = SymbolExtractor.INSTANCE.extractCrypto(data.getMessageText());
             for (var symbol : symbols) {
                 chatMessageAnalysisResult.relatedSymbols().merge(symbol, 1, Integer::sum);
             }
-            addMessage(new SimpleChatMessage(data.senderId(), data.messageText()));
+            addMessage(new SimpleChatMessage(data.getSenderId(), data.getMessageText()));
         }
         if (shouldYield) {
             return Optional.of(result);

@@ -13,8 +13,7 @@ public class DatabaseDataSource implements DataSource<ChatMessageAnalysisResult>
 
     @Override
     public List<ChatMessageAnalysisResult> read() {
-        // 举例：从数据库读最近100条
-        return dao.findByTimeRange(100);
+        return List.of();
     }
 
     @Override

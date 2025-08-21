@@ -1,8 +1,6 @@
 package io.github.cheeringsoul.persistence.pojo;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import lombok.experimental.Accessors;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 
@@ -12,7 +10,7 @@ import java.util.List;
 
 @Getter
 @Setter
-@Accessors(fluent = true)
+@ToString
 public class ChatMessage extends Base {
     private long id;
     @Getter(AccessLevel.NONE)
