@@ -23,7 +23,6 @@ public interface ChatMessageAnalysisDao {
     @SqlQuery("SELECT * FROM message_summary WHERE id = :id")
     ChatMessageAnalysisResult findById(@Bind("id") long id);
 
-
     @SqlQuery("""
                 SELECT * FROM message_summary
                 WHERE start_time >= :startTime AND end_time <= :endTime
