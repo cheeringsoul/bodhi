@@ -25,10 +25,11 @@ public class TgRepository {
         config.setJdbcUrl(DB_URL);
         config.setUsername(DB_USER);
         config.setPassword(DB_PASSWORD);
-        config.setMaximumPoolSize(1);
+        config.setMaximumPoolSize(5);
         config.setMinimumIdle(0);
         config.setIdleTimeout(30000);
         config.setMaxLifetime(600000);
+        config.setConnectionTimeout(10000);
         DATA_SOURCE = new HikariDataSource(config);
     }
 

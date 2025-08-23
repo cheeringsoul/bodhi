@@ -11,7 +11,7 @@ import java.util.concurrent.Executors;
 
 public class MessageSaver {
     public static final MessageSaver INSTANCE = new MessageSaver();
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
     private MessageSaver() {
     }

@@ -45,9 +45,7 @@ public class TelegramReceiver {
     }
 
     public void removeBotMessages() {
-        botConfig.botIdMap.forEach((chatId, botIds) -> {
-            botIds.forEach(botId -> TgRepository.removeBotMessages(chatId, botId));
-        });
+        botConfig.botIdMap.forEach((chatId, botIds) -> botIds.forEach(botId -> TgRepository.removeBotMessages(chatId, botId)));
     }
 
 
@@ -104,7 +102,14 @@ public class TelegramReceiver {
                 if (config.isIgnoredChat(message.chatId)) {
                     return;
                 }
-                parserParserFactory.getParser(message.chatId).flatMap(parser -> parser.parse(message)).ifPresent(MessageSaver.INSTANCE::save);
+                try{
+                    parserParserFactory.getParser(message.chatId).flatMap(parser -> parser.parse(message)).ifPresent(MessageSaver.INSTANCE::save);
+                } catch (Exception e) {
+                    var chatId = message.chatId;
+                    String parserName = config.getParserName(chatId);
+                    log.error("parser error, chatId: {}, : ", e);
+                }
+
             } else if (object instanceof TdApi.UpdateAuthorizationState update) {
                 log.info("授权状态更新：{}", update.authorizationState);
                 if (update.authorizationState instanceof TdApi.AuthorizationStateWaitTdlibParameters) {

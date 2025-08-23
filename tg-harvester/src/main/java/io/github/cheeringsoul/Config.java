@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.cheeringsoul.dao.TgRepository;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -22,6 +23,7 @@ import java.util.Map;
 
 
 @Slf4j
+@ToString
 public class Config {
     private final Map<Long, String> superGroupNameMap = new HashMap<>();
     private final Map<Long, String> newsChannelNameMap = new HashMap<>();
