@@ -1,7 +1,9 @@
 package io.github.cheeringsoul;
 
 import io.github.cheeringsoul.dao.TgRepository;
+import io.github.cheeringsoul.parser.MessageParser;
 import io.github.cheeringsoul.parser.ParserFactory;
+import io.github.cheeringsoul.pojo.BaseEntity;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.drinkless.tdlib.*;
@@ -106,8 +108,14 @@ public class TelegramReceiver {
                     parserParserFactory.getParser(message.chatId).flatMap(parser -> parser.parse(message)).ifPresent(MessageSaver.INSTANCE::save);
                 } catch (Exception e) {
                     var chatId = message.chatId;
-                    String parserName = config.getParserName(chatId);
-                    log.error("parser error, chatId: {}, : ", e);
+                    Optional<MessageParser<? extends BaseEntity>> parser = parserParserFactory.getParser(message.chatId);
+                    String parserName;
+                    if (parser.isPresent()) {
+                        parserName = parser.get().getClass().getSimpleName();
+                    } else {
+                        parserName = "No Parser";
+                    }
+                    log.error("parser error, chatId: {}, parserName: {}, config: {}, : ", chatId, parserName, config, e);
                 }
 
             } else if (object instanceof TdApi.UpdateAuthorizationState update) {
