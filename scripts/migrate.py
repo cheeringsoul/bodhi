@@ -138,6 +138,5 @@ logger.info("Migrated link_content")
 # cur1.close()
 cur2.close()
 ######################
-
 conn1.close()
 conn2.close()
