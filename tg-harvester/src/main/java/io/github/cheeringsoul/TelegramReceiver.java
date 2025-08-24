@@ -104,7 +104,7 @@ public class TelegramReceiver {
                 if (config.isIgnoredChat(message.chatId)) {
                     return;
                 }
-                try{
+                try {
                     parserParserFactory.getParser(message.chatId).flatMap(parser -> parser.parse(message)).ifPresent(MessageSaver.INSTANCE::save);
                 } catch (Exception e) {
                     var chatId = message.chatId;
@@ -115,6 +115,7 @@ public class TelegramReceiver {
                     } else {
                         parserName = "No Parser";
                     }
+
                     log.error("parser error, chatId: {}, parserName: {}, config: {}, : ", chatId, parserName, config, e);
                 }
 
@@ -308,10 +309,10 @@ public class TelegramReceiver {
         setProxy(client).setLogLevels(2);
         Runnable task = () -> {
             fetchChats();
-            log.info("BotIdMap: {}", readableBotIdMap);
             removeBotMessages();
+            log.info("current superGroupNameMap: {}, newsChannelNameMap: {}", config.getSuperGroupNameMap(), config.getNewsChannelNameMap());
         };
-        scheduler.scheduleAtFixedRate(task, 20, 30, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(task, 20, 180, TimeUnit.SECONDS);
     }
 
     public static void main(String[] args) throws Client.ExecutionException {

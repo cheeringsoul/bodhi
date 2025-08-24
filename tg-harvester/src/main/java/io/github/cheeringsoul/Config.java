@@ -25,7 +25,9 @@ import java.util.Map;
 @Slf4j
 @ToString
 public class Config {
+    @Getter
     private final Map<Long, String> superGroupNameMap = new HashMap<>();
+    @Getter
     private final Map<Long, String> newsChannelNameMap = new HashMap<>();
 
     private volatile List<Long> ignoredChatIds;
