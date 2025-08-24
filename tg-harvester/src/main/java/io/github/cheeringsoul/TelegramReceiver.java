@@ -223,7 +223,7 @@ public class TelegramReceiver {
                 for (long chatId : chats.chatIds) {
                     client.send(new TdApi.GetChat(chatId), chatResult -> {
                         if (chatResult instanceof TdApi.Chat chat) {
-                            log.debug("{} ========> chat id: {} chat type: {}", chat.title, chat.id, chat.type);
+                            log.info("{} ========> chat id: {} chat type: {}", chat.title, chat.id, chat.type);
                             if (chat.type instanceof TdApi.ChatTypeSupergroup supergroupType) {
                                 long supergroupId = supergroupType.supergroupId;
                                 if (supergroupType.isChannel) {

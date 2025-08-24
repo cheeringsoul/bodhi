@@ -76,12 +76,12 @@ public class ParserFactory {
     public Optional<MessageParser<? extends BaseEntity>> getParser(long chatId) {
         String parserName = tgGroupConfig.getParserName(chatId);
         if (parserName == null) {
-            log.warn("No parser configured for chatId: {}", chatId);
+            log.debug("No parser configured for chatId: {}", chatId);
             return Optional.empty();
         }
         MessageParser<? extends BaseEntity> parser = parserMap.get(parserName);
         if (parser == null) {
-            log.warn("No parser found for chatId: {}", chatId);
+            log.debug("No parser found for chatId: {}", chatId);
             return Optional.empty();
         }
         return Optional.of(parser);
