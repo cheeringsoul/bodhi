@@ -6,7 +6,7 @@ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITEC
   -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl@3 \
   -DOPENSSL_LIBRARIES=/usr/local/opt/openssl@3/lib \
   -DOPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include \
-  -DJAVA_HOME=/Users/ymy/Library/Java/JavaVirtualMachines/corretto-11.0.24/Contents/Home/ \
+  -DJAVA_HOME=/Users/ymy/Library/Java/JavaVirtualMachines/corretto-21.0.6/Contents/Home/ \
   -DCMAKE_INSTALL_PREFIX:PATH=../example/java/td -DTD_ENABLE_JNI=ON ..
 cmake --build . --target install
 cd ..
