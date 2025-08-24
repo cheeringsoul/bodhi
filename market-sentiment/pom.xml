@@ -9,6 +9,7 @@
     <artifactId>market-sentiment</artifactId>
     <packaging>jar</packaging>
     <name>market-sentiment</name>
+    <version>1.0.0</version>
     <url>http://maven.apache.org</url>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

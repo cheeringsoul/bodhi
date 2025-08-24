@@ -9,7 +9,7 @@
 
     <artifactId>tg-harvester</artifactId>
     <packaging>jar</packaging>
-
+    <version>1.0.5</version>
     <name>tg-harvest</name>
     <url>http://maven.apache.org</url>
 
