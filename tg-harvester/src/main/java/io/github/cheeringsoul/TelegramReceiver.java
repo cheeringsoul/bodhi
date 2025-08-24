@@ -297,7 +297,7 @@ public class TelegramReceiver {
     private void getUserInfo(long userId, Consumer<String> consumer) {
         client.send(new TdApi.GetUser(userId), object -> {
             if (object instanceof TdApi.User user) {
-                log.info("bot : {}", user);
+                log.debug("bot : {}", user);
                 consumer.accept(user.firstName + user.lastName);
             } else {
                 log.error("Failed to get user info.");
