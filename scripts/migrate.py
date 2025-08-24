@@ -20,9 +20,9 @@ conn2 = psycopg2.connect(
 )
 
 start_id = 0
-cur1 = conn1.cursor()
-cur1.execute("select id from channel_news order by id asc limit 1 ")
-rows = cur1.fetchone()
+cur2 = conn2.cursor()
+cur2.execute("select id from channel_news order by id desc limit 1 ")
+rows = cur2.fetchone()
 if rows is not None:
     start_id = rows[0]
 
@@ -38,7 +38,7 @@ cur1 = conn1.cursor(name="cur1")
 cur2 = conn2.cursor()
 cur1.execute("""select cn.id, cn.message_id, cn.chat_id, cn.group_name, cn.message_text, cn.urls, cn."timestamp"
                 from channel_news cn
-                where id >= %s
+                where id > %s
                   and id <= %s
                 order by id asc""", (start_id, end_id))
 while True:
@@ -60,9 +60,9 @@ cur2.close()
 ###########################
 
 start_id = 0
-cur1 = conn1.cursor()
-cur1.execute("select id from chat_messages order by id asc limit 1 ")
-rows = cur1.fetchone()
+cur2 = conn2.cursor()
+cur2.execute("select id from chat_messages order by id desc limit 1 ")
+rows = cur2.fetchone()
 if rows is not None:
     start_id = rows[0]
 
@@ -78,7 +78,7 @@ cur1 = conn1.cursor(name="cur1")
 cur2 = conn2.cursor()
 cur1.execute("""select cn.id, cn.message_id, cn.chat_id, cn.group_name, cn.sender_id, cn.message_text, cn.urls, cn."timestamp"
                 from chat_messages cn
-                where id >= %s
+                where id > %s
                   and id <= %s
                 order by id asc""", (start_id, end_id))
 while True:
@@ -100,9 +100,9 @@ cur2.close()
 ######################
 
 start_id = 0
-cur1 = conn1.cursor()
-cur1.execute("select id from link_content order by id asc limit 1 ")
-rows = cur1.fetchone()
+cur2 = conn2.cursor()
+cur2.execute("select id from link_content order by id desc limit 1 ")
+rows = cur2.fetchone()
 if rows is not None:
     start_id = rows[0]
 
@@ -118,7 +118,7 @@ cur1 = conn1.cursor(name="cur1")
 cur2 = conn2.cursor()
 cur1.execute("""select cn.id, cn.related_super_group_id, cn.url, cn.title, cn.content, cn."timestamp"
                 from link_content cn
-                where id >= %s
+                where id > %s
                   and id <= %s
                 order by id asc""", (start_id, end_id))
 while True:
