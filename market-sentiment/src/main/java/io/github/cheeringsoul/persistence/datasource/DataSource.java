@@ -1,4 +1,4 @@
-package io.github.cheeringsoul.persistence.dao;
+package io.github.cheeringsoul.persistence.datasource;
 
 import java.util.List;
 

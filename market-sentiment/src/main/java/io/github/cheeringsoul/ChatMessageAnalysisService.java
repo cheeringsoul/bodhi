@@ -25,13 +25,13 @@ public class ChatMessageAnalysisService {
         this.summaryDao = summaryDao;
         this.relatedDao = relatedDao;
         this.sentimentDao = sentimentDao;
-        this.chatMessageAnalyzer = new ChatMessageAnalyzer(20);
+        this.chatMessageAnalyzer = new ChatMessageAnalyzer(20, 10);
     }
     public static Jdbi createJdbi() {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/ymy");
-        config.setUsername("ymy");
-        config.setPassword("");
+        config.setJdbcUrl(System.getenv("DB_URL"));
+        config.setUsername(System.getenv("DB_USER"));
+        config.setPassword(System.getenv("DB_PASS"));
 
         HikariDataSource ds = new HikariDataSource(config);
         return Jdbi.create(ds);
@@ -43,7 +43,6 @@ public class ChatMessageAnalysisService {
         ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
         ChatMessage result = dao.findByIdGreaterThan(1L);
         System.out.println(result);
-
     }
 
 }

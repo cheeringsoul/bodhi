@@ -47,15 +47,16 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
         REPEATED_PUNC_PATTERN = Pattern.compile("(" + allowedRegex + ")\\1+");
     }
 
-    private int intervalMinutes;
-    private int windowSize = 10;
+    private int windowSize;
+    private final int intervalMinutes;
 
     private final DeepSeekClient deepSeekClient;
     private final List<SimpleChatMessage> cachedMessages = new ArrayList<>();
     private final ChatMessageAnalysisResult chatMessageAnalysisResult = new ChatMessageAnalysisResult();
     private final ChatMessageAnalysisResult result = new ChatMessageAnalysisResult();
 
-    public ChatMessageAnalyzer(int intervalMinutes) {
+    public ChatMessageAnalyzer(int intervalMinutes, int windowSize) {
+        this.windowSize = windowSize;
         this.intervalMinutes = intervalMinutes;
         deepSeekClient = new DeepSeekClient();
     }

@@ -1,13 +1,14 @@
-package io.github.cheeringsoul.persistence.dao;
+package io.github.cheeringsoul.persistence.datasource;
 
 import io.github.cheeringsoul.analyzer.pojo.ChatMessageAnalysisResult;
+import io.github.cheeringsoul.persistence.dao.ChatMessageAnalysisDao;
 
 import java.util.List;
 
-public class DatabaseDataSource implements DataSource<ChatMessageAnalysisResult> {
+public class ChatMessageAnalysisResultDs implements DataSource<ChatMessageAnalysisResult> {
     private final ChatMessageAnalysisDao dao;
 
-    public DatabaseDataSource(ChatMessageAnalysisDao dao) {
+    public ChatMessageAnalysisResultDs(ChatMessageAnalysisDao dao) {
         this.dao = dao;
     }
 
