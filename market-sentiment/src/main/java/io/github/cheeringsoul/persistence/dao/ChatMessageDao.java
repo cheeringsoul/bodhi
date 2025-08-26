@@ -21,7 +21,7 @@ public interface ChatMessageDao {
     @SqlQuery("SELECT * FROM chat_messages WHERE id = :id")
     ChatMessage findById(@Bind("id") long id);
 
-    @SqlQuery("SELECT * FROM chat_messages WHERE id > :id")
+    @SqlQuery("SELECT * FROM chat_messages WHERE id > :id order by id asc limit 1")
     ChatMessage findByIdGreaterThan(@Bind("id") long id);
 
 

@@ -8,24 +8,22 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 public class ChatMessageDs implements DataSource<ChatMessage> {
-    Long startId;
-
-    public ChatMessageDs(long startId) {
-        this.startId = startId;
-    }
-
-    public static Jdbi createJdbi() {
+    static Jdbi jdbi;
+    static {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(System.getenv("DB_URL"));
         config.setUsername(System.getenv("DB_USER"));
         config.setPassword(System.getenv("DB_PASS"));
         HikariDataSource ds = new HikariDataSource(config);
-        return Jdbi.create(ds);
+        jdbi = Jdbi.create(ds);
+    }
+    Long startId;
+    public ChatMessageDs(long startId) {
+        this.startId = startId;
     }
 
     @Override
     public ChatMessage read() {
-        Jdbi jdbi = createJdbi();
         jdbi.installPlugin(new SqlObjectPlugin());
         ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
         ChatMessage result = dao.findByIdGreaterThan(startId);

@@ -64,7 +64,7 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
     @Override
     public Optional<ChatMessageAnalysisResult> analysis(ChatMessage data) {
         var shouldYield = false;
-        if (chatMessageAnalysisResult.endTime() != null && TimeBucket.isSameBucket(data.timestamp(), chatMessageAnalysisResult.endTime(), intervalMinutes)) {
+        if (chatMessageAnalysisResult.endTime() != null && !TimeBucket.isSameBucket(data.timestamp(), chatMessageAnalysisResult.endTime(), intervalMinutes)) {
             chatMessageAnalysisResult.marketSentimentCounts().putAll(process(cachedMessages));
             cachedMessages.clear();
             chatMessageAnalysisResult.copyTo(result);
@@ -175,8 +175,11 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
         Pair<Set<String>, List<SimpleChatMessage>> pair = findWithContext(cachedMessages, windowSize);
         Set<String> symbols = pair.getLeft();
         List<SimpleChatMessage> contextMessages = pair.getRight();
+        for (String symbol : symbols) {
+            result.computeIfAbsent(symbol, k -> new HashMap<>());
+        }
         // todo
-        var response = deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
+//        var response = deepSeekClient.askDeepSeek(generatePrompt(symbols, contextMessages));
         return result;
     }
 

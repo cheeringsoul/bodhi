@@ -18,17 +18,15 @@ import java.util.Optional;
 
 
 public class ChatMessageAnalysisService {
-    private final ChatMessageAnalysisDao summaryDao;
-    private final RelatedSymbolDao relatedDao;
-    private final MarketSentimentDao sentimentDao;
+//    private final ChatMessageAnalysisDao summaryDao;
+//    private final RelatedSymbolDao relatedDao;
+//    private final MarketSentimentDao sentimentDao;
     private final ChatMessageAnalyzer chatMessageAnalyzer;
 
-    public ChatMessageAnalysisService(ChatMessageAnalysisDao summaryDao,
-                                      RelatedSymbolDao relatedDao,
-                                      MarketSentimentDao sentimentDao) {
-        this.summaryDao = summaryDao;
-        this.relatedDao = relatedDao;
-        this.sentimentDao = sentimentDao;
+    public ChatMessageAnalysisService() {
+//        this.summaryDao = summaryDao;
+//        this.relatedDao = relatedDao;
+//        this.sentimentDao = sentimentDao;
         this.chatMessageAnalyzer = new ChatMessageAnalyzer(20, 10);
     }
 
@@ -40,7 +38,15 @@ public class ChatMessageAnalysisService {
                 break;
             }
             Optional<ChatMessageAnalysisResult> result = chatMessageAnalyzer.analysis(chatMessage);
+            if (result.isPresent()) {
+                System.out.println(result.get());
+            }
         }
+    }
+
+    public static void main(String[] args) {
+        ChatMessageAnalysisService service = new ChatMessageAnalysisService();
+        service.run();
     }
 
 }

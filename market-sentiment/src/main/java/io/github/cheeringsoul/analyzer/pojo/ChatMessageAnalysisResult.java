@@ -2,6 +2,7 @@ package io.github.cheeringsoul.analyzer.pojo;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import lombok.experimental.Accessors;
 
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.util.Map;
 
 @Getter
 @Setter
+@ToString
 @Accessors(fluent = true)
 public class ChatMessageAnalysisResult extends AnalysisResult {
     private int messageCount;
