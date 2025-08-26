@@ -1,6 +1,5 @@
 package io.github.cheeringsoul;
 
-import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.github.cheeringsoul.analyzer.Analyzer;
 import io.github.cheeringsoul.analyzer.impl.ChatMessageAnalyzer;
@@ -9,15 +8,20 @@ import io.github.cheeringsoul.persistence.dao.ChatMessageAnalysisDao;
 import io.github.cheeringsoul.persistence.dao.ChatMessageDao;
 import io.github.cheeringsoul.persistence.dao.MarketSentimentDao;
 import io.github.cheeringsoul.persistence.dao.RelatedSymbolDao;
+import io.github.cheeringsoul.persistence.datasource.ChatMessageDs;
+import io.github.cheeringsoul.persistence.datasource.DataSource;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+
+import java.util.Optional;
+
 
 public class ChatMessageAnalysisService {
     private final ChatMessageAnalysisDao summaryDao;
     private final RelatedSymbolDao relatedDao;
     private final MarketSentimentDao sentimentDao;
-    private final Analyzer chatMessageAnalyzer;
+    private final ChatMessageAnalyzer chatMessageAnalyzer;
 
     public ChatMessageAnalysisService(ChatMessageAnalysisDao summaryDao,
                                       RelatedSymbolDao relatedDao,
@@ -27,23 +31,16 @@ public class ChatMessageAnalysisService {
         this.sentimentDao = sentimentDao;
         this.chatMessageAnalyzer = new ChatMessageAnalyzer(20, 10);
     }
-    public static Jdbi createJdbi() {
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(System.getenv("DB_URL"));
-        config.setUsername(System.getenv("DB_USER"));
-        config.setPassword(System.getenv("DB_PASS"));
 
-        HikariDataSource ds = new HikariDataSource(config);
-        return Jdbi.create(ds);
-    }
-
-    public static void main(String[] args) {
-        Jdbi jdbi = createJdbi();
-        jdbi.installPlugin(new SqlObjectPlugin());
-        ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
-        ChatMessage result = dao.findByIdGreaterThan(1L);
-        System.out.println(result);
+    public void run() {
+        DataSource<ChatMessage> dataSource = new ChatMessageDs(0);
+        while (true) {
+            ChatMessage chatMessage = dataSource.read();
+            if (chatMessage == null) {
+                break;
+            }
+            Optional<ChatMessageAnalysisResult> result = chatMessageAnalyzer.analysis(chatMessage);
+        }
     }
 
 }
-

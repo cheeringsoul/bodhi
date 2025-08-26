@@ -13,8 +13,8 @@ public class ChatMessageAnalysisResultDs implements DataSource<ChatMessageAnalys
     }
 
     @Override
-    public List<ChatMessageAnalysisResult> read() {
-        return List.of();
+    public ChatMessageAnalysisResult read() {
+        return null;
     }
 
     @Override

@@ -1,9 +1,9 @@
 package io.github.cheeringsoul.persistence.datasource;
 
-import java.util.List;
+import io.github.cheeringsoul.persistence.pojo.Base;
 
-public interface DataSource<T> {
-    List<T> read();
+public interface DataSource<T extends Base> {
+    T read();
 
     void close();
 }
