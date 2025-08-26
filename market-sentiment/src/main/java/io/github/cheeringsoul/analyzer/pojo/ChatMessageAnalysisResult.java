@@ -40,6 +40,7 @@ public class ChatMessageAnalysisResult extends AnalysisResult {
         chatMessageAnalysisResult.relatedSymbols.putAll(this.relatedSymbols);
         chatMessageAnalysisResult.startTime = this.startTime;
         chatMessageAnalysisResult.endTime = this.endTime;
+        chatMessageAnalysisResult.marketSentimentCounts.putAll(this.marketSentimentCounts);
     }
 
 }
