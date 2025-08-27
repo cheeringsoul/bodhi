@@ -43,3 +43,4 @@ tdlib.log
 /out.log
 data/*
 tdlib
+logs
