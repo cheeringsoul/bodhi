@@ -37,10 +37,11 @@ public class ChatMessageAnalysisService {
             if (chatMessage == null) {
                 break;
             }
-            Optional<ChatMessageAnalysisResult> result = chatMessageAnalyzer.analysis(chatMessage);
-            if (result.isPresent()) {
-                System.out.println(result.get());
-            }
+            System.out.println(chatMessage.timestamp());
+//            Optional<ChatMessageAnalysisResult> result = chatMessageAnalyzer.analysis(chatMessage);
+//            if (result.isPresent()) {
+//                System.out.println(result.get());
+//            }
         }
     }
 

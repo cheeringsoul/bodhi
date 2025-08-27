@@ -227,9 +227,9 @@ public class TelegramReceiver {
                             if (chat.type instanceof TdApi.ChatTypeSupergroup supergroupType) {
                                 long supergroupId = supergroupType.supergroupId;
                                 if (supergroupType.isChannel) {
-                                    config.addSuperGroup(supergroupId, chat.title);
+                                    config.addNewsChannel(chatId, chat.title);
                                 } else {
-                                    config.addNewsChannel(supergroupId, chat.title);
+                                    config.addSuperGroup(chatId, chat.title);
                                 }
                                 getSupergroupBotMembers(chatId, supergroupId, (botId, botName) -> {
                                     if (config.ignoreBot(chatId)) {

@@ -65,6 +65,7 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
     public Optional<ChatMessageAnalysisResult> analysis(ChatMessage data) {
         var shouldYield = false;
         if (chatMessageAnalysisResult.endTime() != null && !TimeBucket.isSameBucket(data.timestamp(), chatMessageAnalysisResult.endTime(), intervalMinutes)) {
+            log.info("timestamp: {}, endTime: {}, not in same time bucket, yield result.", data.timestamp(), chatMessageAnalysisResult.endTime());
             chatMessageAnalysisResult.marketSentimentCounts().putAll(process(cachedMessages));
             cachedMessages.clear();
             chatMessageAnalysisResult.copyTo(result);
