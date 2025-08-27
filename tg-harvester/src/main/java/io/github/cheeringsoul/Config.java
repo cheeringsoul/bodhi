@@ -80,14 +80,14 @@ public class Config {
 
     public void addSuperGroup(long chatId, String superGroupName) {
         if (superGroupNameMap.containsKey(chatId)) {
-            log.warn("Super group with chatId {} already exists, updating name from {} to {}", chatId, superGroupNameMap.get(chatId), superGroupName);
+            log.debug("Super group with chatId {} already exists, updating name from {} to {}", chatId, superGroupNameMap.get(chatId), superGroupName);
         }
         superGroupNameMap.put(chatId, superGroupName);
     }
 
     public void addNewsChannel(long chatId, String newsChannelName) {
         if (newsChannelNameMap.containsKey(chatId)) {
-            log.warn("News channel with chatId {} already exists, updating name from {} to {}", chatId, newsChannelNameMap.get(chatId), newsChannelName);
+            log.debug("News channel with chatId {} already exists, updating name from {} to {}", chatId, newsChannelNameMap.get(chatId), newsChannelName);
         }
         newsChannelNameMap.put(chatId, newsChannelName);
     }
