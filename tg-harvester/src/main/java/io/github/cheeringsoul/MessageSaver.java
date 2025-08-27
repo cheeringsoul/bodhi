@@ -1,20 +1,20 @@
 package io.github.cheeringsoul;
 
 import io.github.cheeringsoul.dao.TgRepository;
-import io.github.cheeringsoul.pojo.BaseEntity;
-import io.github.cheeringsoul.pojo.ChannelNewsEntity;
-import io.github.cheeringsoul.pojo.ChatMessageEntity;
-import io.github.cheeringsoul.pojo.LinkContent;
+import io.github.cheeringsoul.pojo.*;
+import lombok.Getter;
 
+import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class MessageSaver {
-    public static final MessageSaver INSTANCE = new MessageSaver();
-    private final ExecutorService executorService = Executors.newFixedThreadPool(5);
+public enum MessageSaver {
+     INSTANCE;
 
-    private MessageSaver() {
-    }
+    private final ExecutorService executorService = Executors.newFixedThreadPool(2);
+    @Getter
+    private Instant lastSaveTime = Instant.now();
+
 
     public void save(BaseEntity entity) {
         if (entity instanceof ChatMessageEntity chatMessage) {
@@ -24,6 +24,7 @@ public class MessageSaver {
         } else {
             throw new IllegalArgumentException("Unsupported entity type: " + entity.getClass().getName());
         }
+        lastSaveTime = Instant.now();
     }
 
     private void saveChatMessage(ChatMessageEntity chatMessage) {
@@ -38,6 +39,14 @@ public class MessageSaver {
                 TgRepository.insertLinkPage(id, content);
             }
         });
+    }
+
+    public void saveImpression(Impression impression) {
+        executorService.execute(() -> TgRepository.insertImpression(impression));
+    }
+
+    public void removeBotMessages(long chatId, long botId) {
+        executorService.execute(() -> TgRepository.removeBotMessages(chatId, botId));
     }
 
 }

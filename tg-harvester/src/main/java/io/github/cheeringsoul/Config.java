@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.cheeringsoul.dao.TgRepository;
+import io.github.cheeringsoul.pojo.SourceType;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -23,11 +23,8 @@ import java.util.Map;
 
 
 @Slf4j
-@ToString
 public class Config {
-    @Getter
     private final Map<Long, String> superGroupNameMap = new HashMap<>();
-    @Getter
     private final Map<Long, String> newsChannelNameMap = new HashMap<>();
 
     private volatile List<Long> ignoredChatIds;
@@ -79,16 +76,10 @@ public class Config {
     }
 
     public void addSuperGroup(long chatId, String superGroupName) {
-        if (superGroupNameMap.containsKey(chatId)) {
-            log.debug("Super group with chatId {} already exists, updating name from {} to {}", chatId, superGroupNameMap.get(chatId), superGroupName);
-        }
         superGroupNameMap.put(chatId, superGroupName);
     }
 
     public void addNewsChannel(long chatId, String newsChannelName) {
-        if (newsChannelNameMap.containsKey(chatId)) {
-            log.debug("News channel with chatId {} already exists, updating name from {} to {}", chatId, newsChannelNameMap.get(chatId), newsChannelName);
-        }
         newsChannelNameMap.put(chatId, newsChannelName);
     }
 
@@ -240,5 +231,22 @@ public class Config {
         this.ignoredChatIds = new ArrayList<>(newConfig.ignoredChatIds);
     }
 
+    public static class ImpressionsConfig {
+        SourceType sourceType;
+        long chatId;
+
+        public ImpressionsConfig(SourceType sourceType, long chatId) {
+            this.sourceType = sourceType;
+            this.chatId = chatId;
+        }
+    }
+
+    public static List<ImpressionsConfig> getImpressions() {
+        List<Pair<Integer, Long>> conf = TgRepository.getConfigImpressions();
+        List<ImpressionsConfig> result = conf.stream()
+                .map(each -> new ImpressionsConfig(each.getLeft() == 1 ? SourceType.CHAT : SourceType.CHANNEL_NEWS, each.getRight()))
+                .toList();
+        return result;
+    }
 }
 

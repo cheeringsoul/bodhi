@@ -1,18 +1,16 @@
 package io.github.cheeringsoul;
 
-import io.github.cheeringsoul.dao.TgRepository;
-import io.github.cheeringsoul.parser.MessageParser;
 import io.github.cheeringsoul.parser.ParserFactory;
-import io.github.cheeringsoul.pojo.BaseEntity;
+import io.github.cheeringsoul.pojo.Impression;
+import io.github.cheeringsoul.pojo.SourceType;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.drinkless.tdlib.*;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -27,6 +25,9 @@ public class TelegramReceiver {
     private final Map<String, List<String>> readableBotIdMap = new ConcurrentHashMap<>();
     private final ParserFactory parserParserFactory = new ParserFactory(config, botConfig::isBotId);
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private DelayQueue<DelayedTask> queue = new DelayQueue<>();
+    private List<Config.ImpressionsConfig> impressionsConfigs = Config.getImpressions();
 
     public TelegramReceiver() {
         client = Client.create(new TdClientHandler(), e -> log.error("tdlib error: ", e), e -> log.error("tdlib exception: ", e));
@@ -47,7 +48,7 @@ public class TelegramReceiver {
     }
 
     public void removeBotMessages() {
-        botConfig.botIdMap.forEach((chatId, botIds) -> botIds.forEach(botId -> TgRepository.removeBotMessages(chatId, botId)));
+        botConfig.botIdMap.forEach((chatId, botIds) -> botIds.forEach(botId -> MessageSaver.INSTANCE.removeBotMessages(chatId, botId)));
     }
 
 
@@ -104,21 +105,22 @@ public class TelegramReceiver {
                 if (config.isIgnoredChat(message.chatId)) {
                     return;
                 }
-                try {
-                    parserParserFactory.getParser(message.chatId).flatMap(parser -> parser.parse(message)).ifPresent(MessageSaver.INSTANCE::save);
-                } catch (Exception e) {
-                    var chatId = message.chatId;
-                    Optional<MessageParser<? extends BaseEntity>> parser = parserParserFactory.getParser(message.chatId);
-                    String parserName;
-                    if (parser.isPresent()) {
-                        parserName = parser.get().getClass().getSimpleName();
-                    } else {
-                        parserName = "No Parser";
+                parserParserFactory.getParser(message.chatId).flatMap(parser -> parser.parse(message)).ifPresent(entity -> {
+                    MessageSaver.INSTANCE.save(entity);
+                    long chatId = message.chatId;
+                    long messageId = message.id;
+                    if (shouldUpdateImpressions(chatId)) {
+                        DelayedTask task = DelayedTask.builder()
+                                .chatId(chatId)
+                                .messageId(messageId)
+                                .startTime(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(20))
+                                .taskDelay("20m")
+                                .sourceType(config.isNewsChannel(chatId) ? SourceType.CHANNEL_NEWS : SourceType.CHAT)
+                                .groupName(config.getGroupName(chatId))
+                                .build();
+                        queue.put(task);
                     }
-
-                    log.error("parser error, chatId: {}, parserName: {}, config: {}, : ", chatId, parserName, config, e);
-                }
-
+                });
             } else if (object instanceof TdApi.UpdateAuthorizationState update) {
                 log.info("授权状态更新：{}", update.authorizationState);
                 if (update.authorizationState instanceof TdApi.AuthorizationStateWaitTdlibParameters) {
@@ -223,7 +225,7 @@ public class TelegramReceiver {
                 for (long chatId : chats.chatIds) {
                     client.send(new TdApi.GetChat(chatId), chatResult -> {
                         if (chatResult instanceof TdApi.Chat chat) {
-                            log.info("{} ========> chat id: {} chat type: {}", chat.title, chat.id, chat.type);
+                            log.debug("{} ========> chat id: {} chat type: {}", chat.title, chat.id, chat.type);
                             if (chat.type instanceof TdApi.ChatTypeSupergroup supergroupType) {
                                 long supergroupId = supergroupType.supergroupId;
                                 if (supergroupType.isChannel) {
@@ -261,6 +263,7 @@ public class TelegramReceiver {
                         status instanceof TdApi.ChatMemberStatusCreator || status instanceof TdApi.ChatMemberStatusRestricted) {
                     if (status instanceof TdApi.ChatMemberStatusRestricted restricted) {
                         if (!restricted.isMember) {
+                            // 这里也有误判的可能，所以也需要后面定时fetChChats
                             log.info("不在群里, chatId {}.", chatId);
                             return;
                         }
@@ -305,17 +308,71 @@ public class TelegramReceiver {
         });
     }
 
-    public void start() {
-        setProxy(client).setLogLevels(2);
-        Runnable task = () -> {
-            fetchChats();
-            removeBotMessages();
-            log.info("current superGroupNameMap: {}, newsChannelNameMap: {}", config.getSuperGroupNameMap(), config.getNewsChannelNameMap());
-        };
-        scheduler.scheduleAtFixedRate(task, 20, 180, TimeUnit.SECONDS);
+    private boolean shouldUpdateImpressions(long chatId) {
+        if (config.isNewsChannel(chatId)) {
+            return true;
+        }
+        for (Config.ImpressionsConfig config : impressionsConfigs) {
+            if (chatId == config.chatId) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    public static void main(String[] args) throws Client.ExecutionException {
+    public void start() {
+        setProxy(client).setLogLevels(2);
+        scheduler.scheduleAtFixedRate(() -> {
+            fetchChats();
+            removeBotMessages();
+            impressionsConfigs = Config.getImpressions();
+            Duration diff = Duration.between(MessageSaver.INSTANCE.getLastSaveTime(), Instant.now());
+            if (diff.getSeconds() > 80) {
+                log.warn("超过80秒没有保存消息");
+            }
+        }, 20, 180, TimeUnit.SECONDS);
+
+        executor.submit(() -> {
+            try {
+                while (true) {
+                    DelayedTask task = queue.take();
+                    long chatId = task.chatId();
+                    long messageId = task.messageId();
+                    client.send(
+                            new TdApi.GetMessage(chatId, messageId),
+                            result -> {
+                                if (result instanceof TdApi.Message message) {
+                                    if (message.interactionInfo != null) {
+                                        Impression impression = Impression.builder().chatId(chatId)
+                                                .relatedId(messageId)
+                                                .sourceType(task.sourceType())
+                                                .groupName(task.groupName())
+                                                .views(message.interactionInfo.viewCount)
+                                                .internal(task.taskDelay())
+                                                .build();
+                                        MessageSaver.INSTANCE.saveImpression(impression);
+                                    } else {
+                                        log.error("chatId {}, messageId {}, 浏览量信息不可用", chatId, messageId);
+                                    }
+                                } else {
+                                    System.out.println("获取消息失败: " + result);
+                                }
+                            }
+                    );
+
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+    }
+
+    public void updateImpressions() {
+        List<Config.ImpressionsConfig> configs = Config.getImpressions();
+    }
+
+    public static void main(String[] args) {
         TelegramReceiver receiver = new TelegramReceiver();
         receiver.start();
     }

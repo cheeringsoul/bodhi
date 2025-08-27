@@ -4,11 +4,15 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.github.cheeringsoul.pojo.ChannelNewsEntity;
 import io.github.cheeringsoul.pojo.ChatMessageEntity;
+import io.github.cheeringsoul.pojo.Impression;
 import io.github.cheeringsoul.pojo.LinkContent;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.*;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author ymy
@@ -25,11 +29,10 @@ public class TgRepository {
         config.setJdbcUrl(DB_URL);
         config.setUsername(DB_USER);
         config.setPassword(DB_PASSWORD);
-        config.setMaximumPoolSize(5);
+        config.setMaximumPoolSize(1);
         config.setMinimumIdle(0);
         config.setIdleTimeout(30000);
         config.setMaxLifetime(600000);
-        config.setConnectionTimeout(10000);
         DATA_SOURCE = new HikariDataSource(config);
     }
 
@@ -118,4 +121,42 @@ public class TgRepository {
         return null;
     }
 
+    public static List<Pair<Integer, Long>> getConfigImpressions() {
+        String sql = "select source_type, chat_id from config_impressions";
+        List<Pair<Integer, Long>> list = new ArrayList<>();
+        try (Connection conn = DATA_SOURCE.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                int sourceType = rs.getInt("source_type");
+                if (sourceType != 0 && sourceType != 1) {
+                    log.error("sourceType is not 0 or 1: {}", sourceType);
+                    return List.of();
+                }
+                long chatId = rs.getLong("chat_id");
+                list.add(Pair.of(sourceType, chatId));
+            }
+        } catch (SQLException e) {
+            log.error("Error retrieving config impressions", e);
+            return List.of();
+        }
+        return list;
+    }
+
+    public static void insertImpression(Impression impression) {
+        String sql = "insert into impression (related_id, source_type, chat_id, group_name, views, internal, timestamp) values (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DATA_SOURCE.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, impression.relatedId());
+            stmt.setInt(2, impression.sourceType().getValue());
+            stmt.setLong(3, impression.chatId());
+            stmt.setString(4, impression.groupName());
+            stmt.setInt(5, impression.views());
+            stmt.setString(6, impression.internal());
+            stmt.setTimestamp(7, Timestamp.from(Instant.now()));
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            log.error("Error inserting impression", e);
+        }
+    }
 }
