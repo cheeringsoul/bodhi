@@ -25,17 +25,14 @@ public interface ChatMessageDao {
     @SqlQuery("SELECT * FROM chat_messages WHERE id > :id order by id asc limit 1")
     ChatMessage findByIdGreaterThan(@Bind("id") long id);
 
-    @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId ORDER BY timestamp DESC LIMIT :limit")
+    @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId ORDER BY timestamp ASC LIMIT :limit")
     List<ChatMessage> findRecentByChatId(@Bind("chatId") long chatId, @Bind("limit") int limit);
 
     @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId ORDER BY timestamp ASC LIMIT 1")
     ChatMessage findEarliestByChatId(@Bind("chatId") long chatId);
 
-    @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId AND timestamp > :timestamp ORDER BY timestamp ASC LIMIT 1")
-    ChatMessage findNextAfterTimestamp(@Bind("chatId") long chatId, @Bind("timestamp") Instant timestamp);
-
     @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId AND timestamp > :timestamp ORDER BY timestamp ASC LIMIT :limit")
-    List<ChatMessage> findAllAfterTimestamp(@Bind("chatId") long chatId, @Bind("timestamp") Instant timestamp, @Bind("limit") int limit);
+    List<ChatMessage> findAfterTimestamp(@Bind("chatId") long chatId, @Bind("timestamp") Instant timestamp, @Bind("limit") int limit);
 
 
 }

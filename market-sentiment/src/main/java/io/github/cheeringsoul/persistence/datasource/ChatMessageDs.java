@@ -7,8 +7,14 @@ import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
 public class ChatMessageDs implements DataSource<ChatMessage> {
-    static Jdbi jdbi;
+    static private Jdbi jdbi;
+
     static {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(System.getenv("DB_URL"));
@@ -17,20 +23,26 @@ public class ChatMessageDs implements DataSource<ChatMessage> {
         HikariDataSource ds = new HikariDataSource(config);
         jdbi = Jdbi.create(ds);
     }
-    Long startId;
-    public ChatMessageDs(long startId) {
-        this.startId = startId;
-    }
+
+    private Instant current;
+    private final List<ChatMessage> cached = new LinkedList<>();
 
     @Override
     public ChatMessage read() {
+        if (!cached.isEmpty()) {
+            return cached.removeFirst();
+        }
+        long chatId = -1002463154584L;
         jdbi.installPlugin(new SqlObjectPlugin());
         ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
-        ChatMessage result = dao.findByIdGreaterThan(startId);
-        if (result == null) {
+        ChatMessage start = dao.findEarliestByChatId(chatId);
+        if (start == null) {
             return null;
         }
-        startId = result.getId();
+        current = start.timestamp();
+        List<ChatMessage> result = dao.findAfterTimestamp(chatId, current, 1000);
+        current = result.getLast().timestamp();
+        cached.addAll(result);
         return result;
     }
 
