@@ -7,6 +7,7 @@ import org.jdbi.v3.sqlobject.customizer.BindBean;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
+import java.time.Instant;
 import java.util.List;
 
 @RegisterBeanMapper(ChatMessage.class)
@@ -26,4 +27,15 @@ public interface ChatMessageDao {
 
     @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId ORDER BY timestamp DESC LIMIT :limit")
     List<ChatMessage> findRecentByChatId(@Bind("chatId") long chatId, @Bind("limit") int limit);
+
+    @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId ORDER BY timestamp ASC LIMIT 1")
+    ChatMessage findEarliestByChatId(@Bind("chatId") long chatId);
+
+    @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId AND timestamp > :timestamp ORDER BY timestamp ASC LIMIT 1")
+    ChatMessage findNextAfterTimestamp(@Bind("chatId") long chatId, @Bind("timestamp") Instant timestamp);
+
+    @SqlQuery("SELECT * FROM chat_messages WHERE chat_id = :chatId AND timestamp > :timestamp ORDER BY timestamp ASC LIMIT :limit")
+    List<ChatMessage> findAllAfterTimestamp(@Bind("chatId") long chatId, @Bind("timestamp") Instant timestamp, @Bind("limit") int limit);
+
+
 }
