@@ -56,8 +56,8 @@ CREATE TABLE config
     "version" varchar                          NOT NULL,
     config    json                             NOT NULL,
     CONSTRAINT config_pk PRIMARY KEY (id),
-    CONSTRAINT config_unique UNIQUE ("version")
 );
+CREATE UNIQUE INDEX config_unique ON channel_news ("version");
 
 CREATE TABLE config_impressions
 (
@@ -95,9 +95,8 @@ CREATE TABLE related_symbol_count
     summary_id BIGINT NOT NULL,
     symbol     TEXT   NOT NULL,
     count      INT    NOT NULL,
-    UNIQUE (summary_id, symbol)
 );
-
+CREATE UNIQUE INDEX summary_symbol_unique ON channel_news ("summary_id", "symbol");
 
 -- 每个 symbol 在不同情绪下的次数
 CREATE TABLE market_sentiment_count
@@ -107,5 +106,5 @@ CREATE TABLE market_sentiment_count
     symbol     TEXT             NOT NULL,
     sentiment  INT              NOT NULL,  -- 1: positive, 0: neutral, -1: negative
     count      INT              NOT NULL,
-    UNIQUE (summary_id, symbol, sentiment)
 );
+CREATE UNIQUE INDEX summary_symbol_sentiment_unique ON channel_news ("summary_id", "symbol", "sentiment");
