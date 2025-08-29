@@ -8,7 +8,6 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -22,28 +21,37 @@ public class ChatMessageDs implements DataSource<ChatMessage> {
         config.setPassword(System.getenv("DB_PASS"));
         HikariDataSource ds = new HikariDataSource(config);
         jdbi = Jdbi.create(ds);
+        jdbi.installPlugin(new SqlObjectPlugin());
     }
 
-    private Instant current;
+    private Instant start;
     private final List<ChatMessage> cached = new LinkedList<>();
+
+    public ChatMessageDs() {
+    }
+
+    public ChatMessageDs(Instant start) {
+        this.start = start;
+    }
 
     @Override
     public ChatMessage read() {
         if (!cached.isEmpty()) {
             return cached.removeFirst();
         }
-        long chatId = -1002463154584L;
-        jdbi.installPlugin(new SqlObjectPlugin());
         ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
-        ChatMessage start = dao.findEarliestByChatId(chatId);
         if (start == null) {
+            ChatMessage chatMessage = dao.findEarliest();
+            start = chatMessage.timestamp();
+        }
+
+        List<ChatMessage> result = dao.findAfterTimestamp(start, 1000);
+        if (result.isEmpty()) {
             return null;
         }
-        current = start.timestamp();
-        List<ChatMessage> result = dao.findAfterTimestamp(chatId, current, 1000);
-        current = result.getLast().timestamp();
+        start = result.getLast().timestamp();
         cached.addAll(result);
-        return result;
+        return cached.removeFirst();
     }
 
     @Override

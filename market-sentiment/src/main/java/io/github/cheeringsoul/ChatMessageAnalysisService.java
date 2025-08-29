@@ -1,47 +1,43 @@
 package io.github.cheeringsoul;
 
-import com.zaxxer.hikari.HikariDataSource;
-import io.github.cheeringsoul.analyzer.Analyzer;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cheeringsoul.analyzer.impl.ChatMessageAnalyzer;
 import io.github.cheeringsoul.analyzer.pojo.ChatMessageAnalysisResult;
-import io.github.cheeringsoul.persistence.dao.ChatMessageAnalysisDao;
-import io.github.cheeringsoul.persistence.dao.ChatMessageDao;
-import io.github.cheeringsoul.persistence.dao.MarketSentimentDao;
-import io.github.cheeringsoul.persistence.dao.RelatedSymbolDao;
 import io.github.cheeringsoul.persistence.datasource.ChatMessageDs;
 import io.github.cheeringsoul.persistence.datasource.DataSource;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 
 public class ChatMessageAnalysisService {
-//    private final ChatMessageAnalysisDao summaryDao;
-//    private final RelatedSymbolDao relatedDao;
-//    private final MarketSentimentDao sentimentDao;
-    private final ChatMessageAnalyzer chatMessageAnalyzer;
+    private final Map<Long, ChatMessageAnalyzer> chatMessageAnalyzer = new HashMap<>();
 
-    public ChatMessageAnalysisService() {
-//        this.summaryDao = summaryDao;
-//        this.relatedDao = relatedDao;
-//        this.sentimentDao = sentimentDao;
-        this.chatMessageAnalyzer = new ChatMessageAnalyzer(20, 10);
+
+    private ChatMessageAnalyzer getChatMessageAnalyzer(long chatId) {
+        return chatMessageAnalyzer.computeIfAbsent(chatId, (chatId0) -> new ChatMessageAnalyzer(20, 10));
     }
 
     public void run() {
-        DataSource<ChatMessage> dataSource = new ChatMessageDs(0);
+        DataSource<ChatMessage> dataSource = new ChatMessageDs();
         while (true) {
             ChatMessage chatMessage = dataSource.read();
             if (chatMessage == null) {
                 break;
             }
-            System.out.println(chatMessage.timestamp());
-//            Optional<ChatMessageAnalysisResult> result = chatMessageAnalyzer.analysis(chatMessage);
-//            if (result.isPresent()) {
-//                System.out.println(result.get());
-//            }
+            Long chatId = chatMessage.getChatId();
+            Optional<ChatMessageAnalysisResult> result = getChatMessageAnalyzer(chatId).analysis(chatMessage);
+            if (result.isPresent()) {
+                System.out.println(chatMessage.getGroupName() + "=====>" + result.get());
+            }
         }
     }
 

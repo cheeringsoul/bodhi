@@ -73,6 +73,7 @@ public class Utils {
 
         private final Set<String> cryptoNames = new HashSet<>();
         private final Set<String> cryptoSymbols = new HashSet<>();
+        private final Map<String, String> nameToSymbol = new HashMap<>();
         private List<Map<String, String>> symbols = null;
 
         public List<String> extractCrypto(String text) {
@@ -89,8 +90,10 @@ public class Utils {
             while (wordMatcher.find()) {
                 String word = wordMatcher.group();
                 String lw = word.toLowerCase();
-                if (cryptoNames.contains(lw) || cryptoSymbols.contains(lw)) {
-                    results.add(word);
+                if (cryptoNames.contains(lw)) {
+                    results.add(nameToSymbol.get(lw));
+                } else if (cryptoSymbols.contains(lw)) {
+                    results.add(lw);
                 }
             }
             // 2. 其他几种模式
@@ -105,8 +108,11 @@ public class Utils {
                 while (matcher.find()) {
                     String match = matcher.group();
                     String token = match.replaceAll("[^A-Za-z]", "");
-                    if (cryptoSymbols.contains(token.toLowerCase())) {
-                        results.add(token.toUpperCase());
+                    token = token.toLowerCase();
+                    if (cryptoSymbols.contains(token)) {
+                        results.add(token);
+                    } else if (cryptoNames.contains(token)) {
+                        results.add(nameToSymbol.get(token));
                     }
                 }
             }
@@ -126,9 +132,12 @@ public class Utils {
             this.symbols = symbols;
             this.cryptoNames.clear();
             this.cryptoSymbols.clear();
-            for (Map<String, String> symbol : symbols) {
-                this.cryptoNames.add(symbol.get("name").toLowerCase());
-                this.cryptoSymbols.add(symbol.get("symbol").toLowerCase());
+            for (Map<String, String> symbolMap : symbols) {
+                String name = symbolMap.get("name").toLowerCase();
+                String symbol = symbolMap.get("symbol").toLowerCase();
+                this.cryptoNames.add(name);
+                this.cryptoSymbols.add(symbol);
+                this.nameToSymbol.put(name, symbol);
             }
         }
     }
