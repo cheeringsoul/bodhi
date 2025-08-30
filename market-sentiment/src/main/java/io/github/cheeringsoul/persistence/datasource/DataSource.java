@@ -2,13 +2,15 @@ package io.github.cheeringsoul.persistence.datasource;
 
 import io.github.cheeringsoul.persistence.pojo.Base;
 
-public interface DataSource<T extends Base> {
+public interface DataSource<T extends Base, E> {
     default T read() {
         return null;
     }
 
-    default void save(T t) {
+    default E save(T t) {
+        return null;
     }
 
-    void close();
+    default void close() {
+    }
 }

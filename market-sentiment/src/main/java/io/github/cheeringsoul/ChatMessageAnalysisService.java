@@ -5,8 +5,10 @@ import io.github.cheeringsoul.analyzer.pojo.ChatMessageAnalysisResult;
 import io.github.cheeringsoul.persistence.datasource.ChatMessageDs;
 import io.github.cheeringsoul.persistence.datasource.DataSource;
 import io.github.cheeringsoul.persistence.datasource.MessageSummaryDs;
+import io.github.cheeringsoul.persistence.datasource.RelatedSymbolCountDs;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import io.github.cheeringsoul.persistence.pojo.MessageSummary;
+import io.github.cheeringsoul.persistence.pojo.RelatedSymbolCount;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,8 +24,9 @@ public class ChatMessageAnalysisService {
     }
 
     public void run() {
-        DataSource<ChatMessage> dataSource = new ChatMessageDs(JdbiSupplier.supplier());
-        DataSource<MessageSummary> messageSummaryDs = new MessageSummaryDs(JdbiSupplier.supplier());
+        var dataSource = new ChatMessageDs(JdbiSupplier.supplier());
+        var messageSummaryDs = new MessageSummaryDs(JdbiSupplier.supplier());
+        var relatedSymbolCountDs = new RelatedSymbolCountDs(JdbiSupplier.supplier());
 
         while (true) {
             ChatMessage chatMessage = dataSource.read();
@@ -33,10 +36,13 @@ public class ChatMessageAnalysisService {
             long chatId = chatMessage.getChatId();
             Optional<ChatMessageAnalysisResult> result = getChatMessageAnalyzer(chatId).analysis(chatMessage);
             if (result.isPresent()) {
-//                System.out.println(chatMessage.getGroupName() + "=====>" + result.get());
                 var messageSummary = result.get().getMessageSummary();
                 System.out.println(messageSummary);
-                messageSummaryDs.save(messageSummary);
+                long summaryId = messageSummaryDs.save(messageSummary);
+                result.get().getRelatedSymbolCount().forEach(relatedSymbolCount -> {
+                    relatedSymbolCount.setSummaryId(summaryId);
+                    relatedSymbolCountDs.save(relatedSymbolCount);
+                });
             }
         }
     }

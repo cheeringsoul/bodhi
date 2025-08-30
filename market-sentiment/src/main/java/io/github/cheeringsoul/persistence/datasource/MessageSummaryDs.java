@@ -6,7 +6,7 @@ import org.jdbi.v3.core.Jdbi;
 
 import java.util.function.Supplier;
 
-public class MessageSummaryDs implements DataSource<MessageSummary> {
+public class MessageSummaryDs implements DataSource<MessageSummary, Long> {
     private final Jdbi jdbi;
     private MessageSummaryDao dao;
 
@@ -16,12 +16,8 @@ public class MessageSummaryDs implements DataSource<MessageSummary> {
     }
 
     @Override
-    public void save(MessageSummary messageSummary) {
-        dao.insert(messageSummary);
+    public Long save(MessageSummary messageSummary) {
+        return dao.insert(messageSummary);
     }
 
-    @Override
-    public void close() {
-
-    }
 }

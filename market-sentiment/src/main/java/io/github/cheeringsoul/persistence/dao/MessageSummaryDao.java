@@ -11,8 +11,9 @@ public interface MessageSummaryDao {
     @SqlUpdate("""
             INSERT INTO message_summary (chat_id, message_count, start_time, end_time)
             VALUES (:chatId, :messageCount, :startTime, :endTime)
+            RETURNING id
             """)
-    void insert(@BindBean MessageSummary entity);
+    long insert(@BindBean MessageSummary entity);
 
     @SqlQuery("""
             SELECT * FROM message_summary

@@ -9,7 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Supplier;
 
-public class ChatMessageDs implements DataSource<ChatMessage> {
+public class ChatMessageDs implements DataSource<ChatMessage, Long> {
     private final Jdbi jdbi;
 
     private Instant start;
@@ -46,8 +46,4 @@ public class ChatMessageDs implements DataSource<ChatMessage> {
         return cached.removeFirst();
     }
 
-    @Override
-    public void close() {
-
-    }
 }

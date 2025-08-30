@@ -1,6 +1,7 @@
 package io.github.cheeringsoul.analyzer.pojo;
 
 import io.github.cheeringsoul.persistence.pojo.MessageSummary;
+import io.github.cheeringsoul.persistence.pojo.RelatedSymbolCount;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -9,6 +10,7 @@ import lombok.experimental.Accessors;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -58,5 +60,15 @@ public class ChatMessageAnalysisResult extends AnalysisResult {
             summary.setEndTime(OffsetDateTime.ofInstant(endTime, java.time.ZoneOffset.UTC));
         }
         return summary;
+    }
+
+    public List<RelatedSymbolCount> getRelatedSymbolCount() {
+        return relatedSymbols.entrySet().stream().map(entry -> {
+            var relatedSymbolCount = new RelatedSymbolCount();
+            relatedSymbolCount.setChatId(chatId);
+            relatedSymbolCount.setSymbol(entry.getKey());
+            relatedSymbolCount.setCount(entry.getValue());
+            return relatedSymbolCount;
+        }).toList();
     }
 }
