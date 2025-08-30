@@ -40,5 +40,4 @@ public interface ChatMessageDao {
     @SqlQuery("SELECT * FROM chat_messages WHERE timestamp > :timestamp ORDER BY timestamp ASC LIMIT :limit")
     List<ChatMessage> findAfterTimestamp( @Bind("timestamp") Instant timestamp, @Bind("limit") int limit);
 
-
 }

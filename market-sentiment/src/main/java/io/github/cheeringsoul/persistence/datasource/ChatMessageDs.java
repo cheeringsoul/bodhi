@@ -1,37 +1,30 @@
 package io.github.cheeringsoul.persistence.datasource;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import io.github.cheeringsoul.persistence.dao.ChatMessageDao;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class ChatMessageDs implements DataSource<ChatMessage> {
-    static private Jdbi jdbi;
-
-    static {
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(System.getenv("DB_URL"));
-        config.setUsername(System.getenv("DB_USER"));
-        config.setPassword(System.getenv("DB_PASS"));
-        HikariDataSource ds = new HikariDataSource(config);
-        jdbi = Jdbi.create(ds);
-        jdbi.installPlugin(new SqlObjectPlugin());
-    }
+    private final Jdbi jdbi;
 
     private Instant start;
+    private ChatMessageDao dao;
     private final List<ChatMessage> cached = new LinkedList<>();
 
-    public ChatMessageDs() {
+    public ChatMessageDs(Supplier<Jdbi> jdbiSupplier) {
+        this.jdbi = jdbiSupplier.get();
+        this.dao = jdbi.onDemand(ChatMessageDao.class);
     }
 
-    public ChatMessageDs(Instant start) {
+    public ChatMessageDs(Supplier<Jdbi> jdbiSupplier, Instant start) {
         this.start = start;
+        this.jdbi = jdbiSupplier.get();
+
     }
 
     @Override
@@ -39,7 +32,6 @@ public class ChatMessageDs implements DataSource<ChatMessage> {
         if (!cached.isEmpty()) {
             return cached.removeFirst();
         }
-        ChatMessageDao dao = jdbi.onDemand(ChatMessageDao.class);
         if (start == null) {
             ChatMessage chatMessage = dao.findEarliest();
             start = chatMessage.timestamp();

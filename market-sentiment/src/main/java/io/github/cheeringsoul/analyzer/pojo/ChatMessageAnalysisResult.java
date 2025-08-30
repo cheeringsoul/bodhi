@@ -1,11 +1,13 @@
 package io.github.cheeringsoul.analyzer.pojo;
 
+import io.github.cheeringsoul.persistence.pojo.MessageSummary;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.Accessors;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,6 +16,7 @@ import java.util.Map;
 @ToString
 @Accessors(fluent = true)
 public class ChatMessageAnalysisResult extends AnalysisResult {
+    private long chatId;
     private int messageCount;
     // symbol -> count, symbol提到的次数
     private final Map<String, Integer> relatedSymbols = new HashMap<>();
@@ -36,6 +39,7 @@ public class ChatMessageAnalysisResult extends AnalysisResult {
 
     public void copyTo(ChatMessageAnalysisResult chatMessageAnalysisResult) {
         chatMessageAnalysisResult.reset();
+        chatMessageAnalysisResult.chatId = this.chatId;
         chatMessageAnalysisResult.messageCount = this.messageCount;
         chatMessageAnalysisResult.relatedSymbols.putAll(this.relatedSymbols);
         chatMessageAnalysisResult.startTime = this.startTime;
@@ -43,4 +47,16 @@ public class ChatMessageAnalysisResult extends AnalysisResult {
         chatMessageAnalysisResult.marketSentimentCounts.putAll(this.marketSentimentCounts);
     }
 
+    public MessageSummary getMessageSummary() {
+        var summary = new MessageSummary();
+        summary.setChatId(chatId);
+        summary.setMessageCount(messageCount);
+        if (startTime != null) {
+            summary.setStartTime(OffsetDateTime.ofInstant(startTime, java.time.ZoneOffset.UTC));
+        }
+        if (endTime != null) {
+            summary.setEndTime(OffsetDateTime.ofInstant(endTime, java.time.ZoneOffset.UTC));
+        }
+        return summary;
+    }
 }

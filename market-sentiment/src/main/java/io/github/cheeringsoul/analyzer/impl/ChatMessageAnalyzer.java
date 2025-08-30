@@ -48,6 +48,7 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
     }
 
     private int windowSize;
+    private final long chatId;
     private final int intervalMinutes;
 
     private final DeepSeekClient deepSeekClient;
@@ -55,7 +56,8 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
     private final ChatMessageAnalysisResult chatMessageAnalysisResult = new ChatMessageAnalysisResult();
     private final ChatMessageAnalysisResult result = new ChatMessageAnalysisResult();
 
-    public ChatMessageAnalyzer(int intervalMinutes, int windowSize) {
+    public ChatMessageAnalyzer(long chatId, int intervalMinutes, int windowSize) {
+        this.chatId = chatId;
         this.windowSize = windowSize;
         this.intervalMinutes = intervalMinutes;
         deepSeekClient = new DeepSeekClient();
@@ -63,6 +65,10 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
 
     @Override
     public Optional<ChatMessageAnalysisResult> analysis(ChatMessage data) {
+        if (data.getChatId() != chatId) {
+            log.error("chatId not match, chatId: {}, data.chatId: {}", chatId, data.getChatId());
+            return Optional.empty();
+        }
         var shouldYield = false;
         if (chatMessageAnalysisResult.endTime() != null && !TimeBucket.isSameBucket(data.timestamp(), chatMessageAnalysisResult.endTime(), intervalMinutes)) {
             chatMessageAnalysisResult.marketSentimentCounts().putAll(process(cachedMessages));
@@ -72,6 +78,7 @@ public class ChatMessageAnalyzer implements Analyzer<ChatMessage, ChatMessageAna
             shouldYield = true;
         }
         if (chatMessageAnalysisResult.startTime() == null) {
+            chatMessageAnalysisResult.chatId(chatId);
             chatMessageAnalysisResult.startTime(data.timestamp());
         }
         chatMessageAnalysisResult.endTime(data.timestamp());

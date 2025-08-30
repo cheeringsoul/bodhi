@@ -1,7 +1,6 @@
 package io.github.cheeringsoul.persistence.pojo;
 
 import lombok.*;
-import lombok.experimental.Accessors;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 
 import java.time.Instant;
@@ -13,20 +12,19 @@ import java.util.List;
 @ToString
 public class ChatMessage extends Base {
     private long id;
-    @Getter(AccessLevel.NONE)
+    @ColumnName("message_id")
     private Long messageId;
+    @ColumnName("chat_id")
     private long chatId;
+    @ColumnName("group_name")
     private String groupName;
+    @ColumnName("sender_id")
     private long senderId;
+    @ColumnName("message_text")
     private String messageText;
     private List<String> urls;
     @Getter(AccessLevel.NONE)
     private OffsetDateTime timestamp;
-
-    @ColumnName("message_id")
-    public Long messageId() {
-        return messageId;
-    }
 
     public Instant timestamp() {
         return timestamp.toInstant();

@@ -1,18 +1,13 @@
 package io.github.cheeringsoul;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cheeringsoul.analyzer.impl.ChatMessageAnalyzer;
 import io.github.cheeringsoul.analyzer.pojo.ChatMessageAnalysisResult;
 import io.github.cheeringsoul.persistence.datasource.ChatMessageDs;
 import io.github.cheeringsoul.persistence.datasource.DataSource;
+import io.github.cheeringsoul.persistence.datasource.MessageSummaryDs;
 import io.github.cheeringsoul.persistence.pojo.ChatMessage;
+import io.github.cheeringsoul.persistence.pojo.MessageSummary;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -23,20 +18,25 @@ public class ChatMessageAnalysisService {
 
 
     private ChatMessageAnalyzer getChatMessageAnalyzer(long chatId) {
-        return chatMessageAnalyzer.computeIfAbsent(chatId, (chatId0) -> new ChatMessageAnalyzer(20, 10));
+        return chatMessageAnalyzer.computeIfAbsent(chatId, (chatId0) -> new ChatMessageAnalyzer(chatId0, 20, 10));
     }
 
     public void run() {
-        DataSource<ChatMessage> dataSource = new ChatMessageDs();
+        DataSource<ChatMessage> dataSource = new ChatMessageDs(JdbiSupplier.supplier());
+        DataSource<MessageSummary> messageSummaryDs = new MessageSummaryDs(JdbiSupplier.supplier());
+
         while (true) {
             ChatMessage chatMessage = dataSource.read();
             if (chatMessage == null) {
                 break;
             }
-            Long chatId = chatMessage.getChatId();
+            long chatId = chatMessage.getChatId();
             Optional<ChatMessageAnalysisResult> result = getChatMessageAnalyzer(chatId).analysis(chatMessage);
             if (result.isPresent()) {
-                System.out.println(chatMessage.getGroupName() + "=====>" + result.get());
+//                System.out.println(chatMessage.getGroupName() + "=====>" + result.get());
+                var messageSummary = result.get().getMessageSummary();
+                System.out.println(messageSummary);
+                messageSummaryDs.save(messageSummary);
             }
         }
     }
