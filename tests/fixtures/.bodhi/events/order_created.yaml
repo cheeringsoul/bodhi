@@ -1,14 +1,14 @@
 name: order_created
-description: 订单创建后发布的领域事件
+description: Domain event published after order creation
 channel: kafka:order-events
 
 schema:
   - field: orderId
     type: string
-    description: 订单ID
+    description: Order ID
   - field: userId
     type: string
-    description: 用户ID
+    description: User ID
 
 producers:
   - fn: OrderService.create
@@ -16,4 +16,4 @@ producers:
 
 consumers:
   - fn: NotificationHandler.onOrderCreated
-    description: 发送订单通知
+    description: Send order notification

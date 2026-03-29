@@ -1,5 +1,5 @@
 concepts:
-  - term: 成交
-    definition: 订单状态从 PAID 变为 COMPLETED
+  - term: Closed deal
+    definition: Order status transitions from PAID to COMPLETED
     related_states: [PAID, COMPLETED]
     related_flows: [create_order]

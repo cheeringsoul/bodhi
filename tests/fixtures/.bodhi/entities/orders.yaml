@@ -1,19 +1,19 @@
 table: orders
-description: 核心订单表
+description: Core orders table
 database: mysql
 
 fields:
   - name: id
     type: bigint
-    description: 订单主键
+    description: Order primary key
     primary_key: true
   - name: user_id
     type: bigint
-    description: 用户 ID
+    description: User ID
     references: users.id
   - name: status
     type: int
-    description: 订单状态
+    description: Order status
     state_machine: order_lifecycle
     enum:
       0: INIT
@@ -22,10 +22,10 @@ fields:
       5: CANCELLED
   - name: total_amount
     type: decimal
-    description: 订单总金额
+    description: Order total amount
 
 relations:
   - target: order_items
     type: one_to_many
     join: orders.id = order_items.order_id
-    description: 订单商品明细
+    description: Order line items

@@ -1,44 +1,45 @@
-扫描指定目录，为存量代码补充 Bodhi DSL 标注。按以下顺序执行：
+Scan the specified directory and add Bodhi DSL annotations to existing code. Execute according to the argument provided.
 
-## 参数
+## Arguments
 
-$ARGUMENTS 是要扫描的目标，格式为以下之一：
-- `init` — 初始化 .bodhi/ 目录（第一次使用时执行）
-- 目录路径 — 扫描该目录下的源代码，补充 @bodhi.* inline tags
-- `flows` — 从已有的 inline tags 生成 .bodhi/flows/*.yaml
-- `concepts` — 从已有的 states 和 flows 生成 .bodhi/concepts/glossary.yaml
+$ARGUMENTS is the scan target, in one of the following formats:
+- `init` — Initialize the .bodhi/ directory (run this first)
+- Directory path — Scan source code in that directory and add @bodhi.* inline tags
+- `flows` — Generate .bodhi/flows/*.yaml from existing inline tags
+- `concepts` — Generate .bodhi/concepts/glossary.yaml from existing states and flows
 
-## 执行规则
+## Execution Rules
 
-### 如果参数是 `init`
+### If argument is `init`
 
-1. 读取项目构建文件（pom.xml / build.gradle / package.json / go.mod / pyproject.toml）确定语言和框架
-2. 创建 `.bodhi/bodhi.yaml`，填写 project name、languages、frameworks
-3. 扫描 ORM 模型 / 数据库 migration / DDL 文件，为每个表创建 `.bodhi/entities/<table>.yaml`
-4. 扫描状态枚举（如 OrderStatus、PaymentState），为有状态流转的实体创建 `.bodhi/states/<name>.yaml`
-5. 优先处理核心业务表（外键关联最多的、代码中引用最多的），不需要一次做完所有表
+1. Read project build files (pom.xml / build.gradle / package.json / go.mod / pyproject.toml) to determine languages and frameworks
+2. Create `.bodhi/bodhi.yaml` with project name, languages, and frameworks
+3. Scan ORM models / database migrations / DDL files, create `.bodhi/entities/<table>.yaml` for each table
+4. Scan status enums (e.g., OrderStatus, PaymentState), create `.bodhi/states/<name>.yaml` for entities with state transitions
+5. Prioritize core business tables (most foreign key references, most code references) — no need to cover all tables at once
 
-### 如果参数是目录路径
+### If argument is a directory path
 
-1. 找到该目录下所有源代码文件中的 public 方法/函数（跳过 getter/setter/toString/构造函数/测试代码）
-2. 先列出要处理的方法清单，等用户确认后再修改
-3. 按照 CLAUDE.md 中的 Bodhi DSL 规范，在每个方法的 doc comment 中补充 @bodhi.* 标签：
-   - 必须补：`@bodhi.intent` + `@bodhi.reads` + `@bodhi.writes`
-   - 有关键调用补 `@bodhi.calls`
-   - 有事件发布补 `@bodhi.emits`
-   - 有错误处理补 `@bodhi.on_fail`
-4. 如果 `.bodhi/entities/` 已存在，对照其中的字段名确保 reads/writes 标签准确
+1. Find all public methods/functions in source files under that directory (skip getters/setters/toString/constructors/test code)
+2. List the methods to be processed first, wait for user confirmation before modifying
+3. Following the Bodhi DSL rules in CLAUDE.md, add @bodhi.* tags to each method's doc comment:
+   - Must add: `@bodhi.intent` + `@bodhi.reads` + `@bodhi.writes`
+   - Add `@bodhi.calls` if there are key calls (use `via` for remote calls)
+   - Add `@bodhi.emits` if events are published
+   - Add `@bodhi.consumes` if events are consumed
+   - Add `@bodhi.on_fail` if there is error handling
+4. If `.bodhi/entities/` already exists, cross-reference field names to ensure reads/writes tags are accurate
 
-### 如果参数是 `flows`
+### If argument is `flows`
 
-1. 扫描所有 Controller / Handler / Router 文件，找到所有 HTTP/gRPC/MQ 入口
-2. 对每个入口，根据代码中的 `@bodhi.calls` 标签追踪调用链
-3. 为每个入口创建 `.bodhi/flows/<name>.yaml`
-4. 优先处理 POST/PUT/DELETE 接口（有写操作的）
-5. 先列出入口清单，等用户确认优先级后再生成
+1. Scan all Controller / Handler / Router files to find all HTTP/gRPC/MQ entry points
+2. For each entry point, trace the call chain using `@bodhi.calls` tags in the code
+3. Create `.bodhi/flows/<name>.yaml` for each entry point
+4. Prioritize POST/PUT/DELETE endpoints (those with write operations)
+5. List the entry points first, wait for user to confirm priorities before generating
 
-### 如果参数是 `concepts`
+### If argument is `concepts`
 
-1. 阅读 `.bodhi/states/` 和 `.bodhi/flows/` 中的内容
-2. 提取关键业务术语（状态含义、业务动作、领域概念）
-3. 创建或更新 `.bodhi/concepts/glossary.yaml`
+1. Read content from `.bodhi/states/` and `.bodhi/flows/`
+2. Extract key business terms (state meanings, business actions, domain concepts)
+3. Create or update `.bodhi/concepts/glossary.yaml`

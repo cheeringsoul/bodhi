@@ -36,7 +36,7 @@ class TestJavaParser:
     def test_intent(self):
         functions = parse_file(FIXTURES / "src" / "OrderService.java")
         create = next(f for f in functions if f.function_name == "create")
-        assert create.intent == "创建订单，扣减库存，发布领域事件"
+        assert create.intent == "Create order, deduct inventory, publish domain event"
 
     def test_reads(self):
         functions = parse_file(FIXTURES / "src" / "OrderService.java")
@@ -83,7 +83,7 @@ class TestPythonParser:
     def test_python_intent(self):
         functions = parse_file(FIXTURES / "src" / "order_service.py")
         create = next(f for f in functions if f.function_name == "create_order")
-        assert create.intent == "创建订单"
+        assert create.intent == "Create order"
 
     def test_python_calls(self):
         functions = parse_file(FIXTURES / "src" / "order_service.py")

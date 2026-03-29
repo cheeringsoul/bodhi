@@ -3,7 +3,7 @@ package com.example.order;
 public class OrderService {
 
     /**
-     * @bodhi.intent 创建订单，扣减库存，发布领域事件
+     * @bodhi.intent Create order, deduct inventory, publish domain event
      * @bodhi.reads request.body(userId, items, address)
      * @bodhi.writes orders(id, userId, totalAmount, status=PENDING) via INSERT
      * @bodhi.calls InventoryService.deduct, PaymentService.hold
@@ -16,7 +16,7 @@ public class OrderService {
     }
 
     /**
-     * @bodhi.intent 取消订单，回滚库存
+     * @bodhi.intent Cancel order, rollback inventory
      * @bodhi.reads orders(id, status) WHERE id = orderId
      * @bodhi.writes orders(status=CANCELLED) via UPDATE
      * @bodhi.calls InventoryService.rollback

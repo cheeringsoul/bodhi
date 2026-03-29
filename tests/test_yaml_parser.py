@@ -20,7 +20,7 @@ class TestLoadBodhiDir:
         assert len(self.dsl["entities"]) == 1
         orders = self.dsl["entities"][0]
         assert orders.table == "orders"
-        assert orders.description == "核心订单表"
+        assert orders.description == "Core orders table"
         assert orders.database == "mysql"
 
     def test_entity_fields(self):
@@ -148,5 +148,5 @@ class TestLoadBodhiDir:
     def test_concepts(self):
         assert len(self.dsl["concepts"]) == 1
         concept = self.dsl["concepts"][0]
-        assert concept.term == "成交"
+        assert concept.term == "Closed deal"
         assert "PAID" in concept.related_states

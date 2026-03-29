@@ -1,12 +1,12 @@
 name: order_lifecycle
 entity: orders
 field: status
-description: 订单生命周期
+description: Order lifecycle
 
 states:
   - id: INIT
     value: 0
-    description: 等待支付
+    description: Awaiting payment
     transitions:
       - target: PAID
         trigger: event(payment_success)
@@ -17,7 +17,7 @@ states:
 
   - id: PAID
     value: 1
-    description: 已支付
+    description: Payment received
     transitions:
       - target: COMPLETED
         trigger: event(delivery_confirmed)
@@ -25,10 +25,10 @@ states:
 
   - id: COMPLETED
     value: 4
-    description: 订单完成
+    description: Order completed
     terminal: true
 
   - id: CANCELLED
     value: 5
-    description: 已取消
+    description: Order cancelled
     terminal: true

@@ -1,5 +1,5 @@
 name: order-service
-description: 订单核心服务
+description: Core order service
 port: 8080
 tech_stack: [spring-boot, mysql, kafka]
 
@@ -7,11 +7,11 @@ apis:
   - method: POST
     path: /api/orders
     flow: create_order
-    description: 创建订单
+    description: Create order
   - method: GET
     path: /api/orders/{id}
     flow: nonexistent_flow
-    description: 查询订单详情
+    description: Get order details
 
 depends_on:
   - service: payment-service

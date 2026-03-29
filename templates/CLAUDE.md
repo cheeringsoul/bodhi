@@ -1,28 +1,28 @@
-# Bodhi DSL — 代码与 DSL 同步生成规范
+# Bodhi DSL — Code + DSL Co-generation Rules
 
-当你在本项目中写代码时，**必须同时维护 Bodhi DSL**。DSL 分两层，都要写。
+When writing code in this project, you **must maintain Bodhi DSL simultaneously**. The DSL has two layers — both are required.
 
 ---
 
-## Layer 1: Inline Tags（每写/改一个函数都要做）
+## Layer 1: Inline Tags (every function you write or modify)
 
-在函数/方法的 doc comment 中添加 `@bodhi.*` 标签。
+Add `@bodhi.*` tags in the doc comment of each function/method.
 
-### 必须添加的标签
+### Required Tags
 
-| 标签 | 何时添加 | 说明 |
-|------|----------|------|
-| `@bodhi.intent` | **每个函数都要** | 一句话业务意图，用业务语言，不复述代码 |
-| `@bodhi.reads` | 有读取数据时 | 声明读了什么：`request.body(fields)`, `table(fields)`, `cache:key(fields)` |
-| `@bodhi.writes` | 有写入数据时 | 声明写了什么：`table(fields) via INSERT/UPDATE/DELETE`, `response(code, fields)` |
-| `@bodhi.calls` | 有关键调用时 | 只列业务关键调用，格式 `ClassName.method [via protocol]`。远程调用加 `via http:POST /path` 或 `via grpc` |
-| `@bodhi.emits` | 有事件发布时 | `event_name(payload_fields) [to destination]`，不要遗漏 MQ/EventBus/WebSocket |
-| `@bodhi.consumes` | 有事件消费时 | `event_name(payload_fields) [from source]`，标注函数由什么事件触发 |
-| `@bodhi.on_fail` | 有错误处理时 | `condition → action`，action 可链式：`retry 3 → reject 500`。支持 `circuit_breaker(...)`, `degrade(...)` 等微服务容错模式 |
+| Tag | When to Add | Description |
+|-----|-------------|-------------|
+| `@bodhi.intent` | **Every function** | One-line business intent in business language, don't restate the code |
+| `@bodhi.reads` | When reading data | What is read: `request.body(fields)`, `table(fields)`, `cache:key(fields)` |
+| `@bodhi.writes` | When writing data | What is written: `table(fields) via INSERT/UPDATE/DELETE`, `response(code, fields)` |
+| `@bodhi.calls` | When making key calls | Only list business-critical calls. Format: `ClassName.method [via protocol]`. Remote calls must add `via http:POST /path` or `via grpc` |
+| `@bodhi.emits` | When publishing events | `event_name(payload_fields) [to destination]` — don't miss MQ/EventBus/WebSocket |
+| `@bodhi.consumes` | When consuming events | `event_name(payload_fields) [from source]` — declare what event triggers this function |
+| `@bodhi.on_fail` | When handling errors | `condition → action`, chainable: `retry 3 → reject 500`. Supports `circuit_breaker(...)`, `degrade(...)` for microservice resilience |
 
-### 可选标签（有就加）
+### Optional Tags (add when applicable)
 
-- `@bodhi.auth required\|public\|required(role=X)`
+- `@bodhi.auth required|public|required(role=X)`
 - `@bodhi.validate <rule>`
 - `@bodhi.log.success "<pattern>"`
 - `@bodhi.log.error "<pattern>" [severity=level]`
@@ -30,17 +30,17 @@
 - `@bodhi.idempotent key=<fields>`
 - `@bodhi.ratelimit <rate> per <scope>`
 
-### 语言适配
+### Language Adaptation
 
-**Java/Kotlin/TypeScript**: 写在 `/** */` JSDoc/Javadoc 中
-**Python**: 写在 `"""` docstring 中
-**Go**: 写在 `//` 行注释中
+**Java/Kotlin/TypeScript**: Place in `/** */` JSDoc/Javadoc
+**Python**: Place in `"""` docstring
+**Go**: Place in `//` line comments
 
-### 示例
+### Example
 
 ```java
 /**
- * @bodhi.intent 创建订单，扣减库存，发布领域事件
+ * @bodhi.intent Create order, deduct inventory, publish domain event
  * @bodhi.reads request.body(userId, items, address)
  * @bodhi.writes orders(id, userId, totalAmount, status=PENDING) via INSERT
  * @bodhi.calls InventoryService.deduct via grpc:InventoryService/Deduct
@@ -54,39 +54,39 @@ public OrderResponse create(CreateOrderRequest req) { ... }
 
 ---
 
-## Layer 2: System Files（结构性变更时要做）
+## Layer 2: System Files (on structural changes)
 
-当代码变更涉及以下情况时，必须同步更新 `.bodhi/` 目录下的 YAML 文件。
+When code changes involve any of the following, you must update the corresponding `.bodhi/` YAML files.
 
-### 触发规则
+### Trigger Rules
 
-| 你做了什么 | 需要更新什么 |
-|-----------|-------------|
-| 新增/修改 HTTP 接口或请求处理链路 | `.bodhi/flows/<flow_name>.yaml` |
-| 新增/修改数据库表、ORM 模型 | `.bodhi/entities/<table_name>.yaml` |
-| 新增/修改状态枚举或状态流转逻辑 | `.bodhi/states/<state_machine_name>.yaml` |
-| 新增/修改事件（MQ、EventBus 消息） | `.bodhi/events/<event_name>.yaml` |
-| 新增/修改微服务间调用或依赖关系 | `.bodhi/services/<service_name>.yaml` |
-| 引入新的业务术语或概念 | `.bodhi/concepts/glossary.yaml` |
-| 项目初始化或框架变更 | `.bodhi/bodhi.yaml` |
+| What You Did | What to Update |
+|--------------|----------------|
+| Added/modified an HTTP endpoint or request handling chain | `.bodhi/flows/<flow_name>.yaml` |
+| Added/modified a database table or ORM model | `.bodhi/entities/<table_name>.yaml` |
+| Added/modified a status enum or state transition logic | `.bodhi/states/<state_machine_name>.yaml` |
+| Added/modified an event (MQ, EventBus message) | `.bodhi/events/<event_name>.yaml` |
+| Added/modified cross-service calls or dependencies | `.bodhi/services/<service_name>.yaml` |
+| Introduced a new business term or concept | `.bodhi/concepts/glossary.yaml` |
+| Project initialization or framework change | `.bodhi/bodhi.yaml` |
 
-### Flow 文件 — `.bodhi/flows/<name>.yaml`
+### Flow File — `.bodhi/flows/<name>.yaml`
 
-当你写了一个 API 接口或完整的请求处理链路时，创建或更新对应 flow：
+When you write an API endpoint or a complete request handling chain, create or update the corresponding flow:
 
 ```yaml
 name: create_order
-description: 用户下单完整流程
+description: Complete order creation flow
 
 entry:
-  type: http          # http | grpc | mq_consumer | scheduler | websocket
+  type: http          # http | grpc | mq_consumer | event | scheduler | websocket
   method: POST
   path: /api/orders
   auth: required(role=USER)
 
 steps:
   - fn: OrderController.create
-    intent: 接收请求，参数校验，编排创建流程
+    intent: Receive request, validate params, orchestrate creation
     reads:
       - request.body(userId, items, address)
     calls:
@@ -97,7 +97,7 @@ steps:
       - validation_failed → reject 400
 
   - fn: InventoryService.deduct
-    intent: 扣减商品库存
+    intent: Deduct product inventory
     reads:
       - inventory(productId, stock)
     writes:
@@ -106,14 +106,14 @@ steps:
       - inventory_insufficient → reject 400
 
   - fn: OrderRepository.save
-    intent: 持久化订单到数据库
+    intent: Persist order to database
     writes:
       - orders(id, userId, totalAmount, status=PENDING) via INSERT
     on_fail:
       - db_write_failed → retry 2 → throw
 
   - fn: EventPublisher.publish
-    intent: 发布订单创建领域事件
+    intent: Publish order created domain event
     emits:
       - order_created(orderId, userId) to kafka:order-events
 
@@ -137,24 +137,24 @@ events:
   - order_created
 ```
 
-### Entity 文件 — `.bodhi/entities/<table>.yaml`
+### Entity File — `.bodhi/entities/<table>.yaml`
 
-当你创建或修改数据库表/ORM 模型时：
+When you create or modify a database table / ORM model:
 
 ```yaml
 table: orders
-description: 核心订单表
+description: Core orders table
 database: mongodb          # mysql | postgresql | mongodb | redis
 
 fields:
   - name: id
     type: bigint
-    description: 订单主键
+    description: Order primary key
     primary_key: true
   - name: status
     type: int
-    description: 订单状态
-    state_machine: order_lifecycle    # 有状态流转就关联状态机
+    description: Order status
+    state_machine: order_lifecycle    # Link to state machine if stateful
     enum:
       0: INIT
       1: PAID
@@ -163,13 +163,13 @@ fields:
       5: CANCELLED
   - name: phone
     type: string
-    description: 用户联系电话
-    sensitive: true                   # PII 敏感数据标记
+    description: User contact phone
+    sensitive: true                   # PII sensitive data flag
 
 indexes:
   - name: idx_user_status
     fields: [user_id, status]
-    description: 用户订单列表查询
+    description: User order list query
 
 relations:
   - target: order_items
@@ -180,20 +180,20 @@ relations:
     join: orders.user_id = users.id
 ```
 
-### State Machine 文件 — `.bodhi/states/<name>.yaml`
+### State Machine File — `.bodhi/states/<name>.yaml`
 
-当你实现状态流转逻辑（枚举 + 转换方法）时：
+When you implement state transition logic (enum + transition methods):
 
 ```yaml
 name: order_lifecycle
 entity: orders
 field: status
-description: 订单生命周期
+description: Order lifecycle
 
 states:
   - id: INIT
     value: 0
-    description: 等待支付
+    description: Awaiting payment
     transitions:
       - target: PAID
         trigger: event(payment_success)
@@ -204,7 +204,7 @@ states:
 
   - id: PAID
     value: 1
-    description: 已支付
+    description: Payment received
     transitions:
       - target: SHIPPED
         trigger: event(shipment_created)
@@ -212,25 +212,25 @@ states:
 
   - id: COMPLETED
     value: 4
-    description: 订单完成
+    description: Order completed
     terminal: true
 
   - id: CANCELLED
     value: 5
-    description: 已取消
+    description: Order cancelled
     terminal: true
     side_effects:
       - rollback inventory
       - refund if paid
 ```
 
-### Service 文件 — `.bodhi/services/<service_name>.yaml`
+### Service File — `.bodhi/services/<service_name>.yaml`
 
-仅微服务/分布式架构需要。当你新增服务间调用或修改服务依赖时：
+Only for microservice / distributed architectures. When you add cross-service calls or modify service dependencies:
 
 ```yaml
 name: order-service
-description: 订单核心服务
+description: Core order service
 port: 8080
 tech_stack: [spring-boot, mysql, kafka]
 
@@ -238,7 +238,7 @@ apis:
   - method: POST
     path: /api/orders
     flow: create_order
-    description: 创建订单
+    description: Create order
 
 depends_on:
   - service: payment-service
@@ -256,25 +256,25 @@ depends_on:
     topics: [order-events]
 ```
 
-### Event 文件 — `.bodhi/events/<event_name>.yaml`
+### Event File — `.bodhi/events/<event_name>.yaml`
 
-当你实现了事件的发布或消费逻辑时（Kafka、RabbitMQ、EventBus 等），创建或更新对应 event：
+When you implement event publishing or consumption (Kafka, RabbitMQ, EventBus, etc.):
 
 ```yaml
 name: order_created
-description: 订单创建后发布的领域事件
+description: Domain event published after order creation
 channel: kafka:order-events
 
 schema:
   - field: orderId
     type: string
-    description: 订单ID
+    description: Order ID
   - field: userId
     type: string
-    description: 用户ID
+    description: User ID
   - field: totalAmount
     type: decimal
-    description: 订单总金额
+    description: Order total amount
 
 producers:
   - fn: OrderService.create
@@ -283,35 +283,35 @@ producers:
 consumers:
   - fn: NotificationHandler.onOrderCreated
     flow: send_order_notification
-    description: 发送订单通知给用户
+    description: Send order notification to user
 ```
 
-### Concept 文件 — `.bodhi/concepts/glossary.yaml`
+### Concept File — `.bodhi/concepts/glossary.yaml`
 
-当代码中出现业务术语时（尤其是状态判断、业务规则）：
+When business terms appear in code (especially in state checks or business rules):
 
 ```yaml
 concepts:
-  - term: 成交
-    definition: 订单状态从 PAID 变为 COMPLETED，表示交易已全部完成
+  - term: Closed deal
+    definition: Order status transitions from PAID to COMPLETED, meaning the transaction is fully settled
     related_states: [PAID, COMPLETED]
     related_flows: [create_order, confirm_delivery]
 
-  - term: 锁库存
-    definition: 下单时预扣库存数量，防止超卖
+  - term: Stock lock
+    definition: Pre-deduct inventory on order creation to prevent overselling
     related_fields: [inventory.stock, inventory.locked_stock]
     related_flows: [create_order, cancel_order]
 ```
 
-### Project 元信息 — `.bodhi/bodhi.yaml`
+### Project Metadata — `.bodhi/bodhi.yaml`
 
-项目初始化时创建一次：
+Create once on project initialization:
 
 ```yaml
 version: "0.1.0"
 project:
   name: "your-project-name"
-  description: "项目描述"
+  description: "Project description"
   languages: [java]
   frameworks: [spring-boot, mybatis]
 
@@ -324,20 +324,20 @@ inline:
 
 ---
 
-## 判断规则
+## Decision Tree
 
-**不确定要不要写 DSL？用这个决策树：**
+**Not sure whether to write DSL? Use this decision tree:**
 
-1. 你写了一个函数吗？→ 加 Layer 1 inline tags
-2. 这个函数是 API 入口 / 请求处理链的一部分吗？→ 更新 `.bodhi/flows/`
-3. 你建了新表或改了表结构吗？→ 更新 `.bodhi/entities/`
-4. 你实现了状态枚举或状态转换吗？→ 更新 `.bodhi/states/`
-5. 你实现了事件发布或消费吗？→ 更新 `.bodhi/events/`
-6. 你新增了微服务间调用或依赖吗？→ 更新 `.bodhi/services/`
-7. 你引入了新的业务术语吗？→ 更新 `.bodhi/concepts/`
+1. Did you write a function? → Add Layer 1 inline tags
+2. Is this function an API entry point / part of a request handling chain? → Update `.bodhi/flows/`
+3. Did you create or modify a database table? → Update `.bodhi/entities/`
+4. Did you implement a state enum or state transitions? → Update `.bodhi/states/`
+5. Did you implement event publishing or consumption? → Update `.bodhi/events/`
+6. Did you add cross-service calls or dependencies? → Update `.bodhi/services/`
+7. Did you introduce a new business term? → Update `.bodhi/concepts/`
 
-**什么不需要写 DSL：**
-- 纯工具函数（format, log wrapper, string utils）
-- 简单 getter/setter
-- 测试代码
-- 配置类/启动类
+**What does NOT need DSL:**
+- Pure utility functions (format, log wrapper, string utils)
+- Simple getters/setters
+- Test code
+- Configuration / startup classes

@@ -1,5 +1,5 @@
 name: create_order
-description: 用户下单流程
+description: Order creation flow
 
 entry:
   type: http
@@ -9,7 +9,7 @@ entry:
 
 steps:
   - fn: OrderService.create
-    intent: 接收请求，编排创建流程
+    intent: Receive request, orchestrate order creation
     reads:
       - request.body(userId, items, address)
     calls:
@@ -19,7 +19,7 @@ steps:
       - validation_failed → reject 400
 
   - fn: InventoryService.deduct
-    intent: 扣减库存
+    intent: Deduct inventory
     reads:
       - inventory(productId, stock)
     writes:
@@ -28,7 +28,7 @@ steps:
       - inventory_insufficient → reject 400
 
   - fn: OrderRepository.save
-    intent: 持久化订单
+    intent: Persist order
     writes:
       - orders(id, userId, totalAmount, status=PENDING) via INSERT
 
