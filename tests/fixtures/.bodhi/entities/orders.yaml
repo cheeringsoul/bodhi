@@ -1,0 +1,31 @@
+table: orders
+description: 核心订单表
+database: mysql
+
+fields:
+  - name: id
+    type: bigint
+    description: 订单主键
+    primary_key: true
+  - name: user_id
+    type: bigint
+    description: 用户 ID
+    references: users.id
+  - name: status
+    type: int
+    description: 订单状态
+    state_machine: order_lifecycle
+    enum:
+      0: INIT
+      1: PAID
+      4: COMPLETED
+      5: CANCELLED
+  - name: total_amount
+    type: decimal
+    description: 订单总金额
+
+relations:
+  - target: order_items
+    type: one_to_many
+    join: orders.id = order_items.order_id
+    description: 订单商品明细

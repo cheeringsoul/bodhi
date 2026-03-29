@@ -1,0 +1,40 @@
+name: create_order
+description: 用户下单流程
+
+entry:
+  type: http
+  method: POST
+  path: /api/orders
+  auth: required(role=USER)
+
+steps:
+  - fn: OrderService.create
+    intent: 接收请求，编排创建流程
+    reads:
+      - request.body(userId, items, address)
+    calls:
+      - InventoryService.deduct
+      - OrderRepository.save
+    on_fail:
+      - validation_failed → reject 400
+
+  - fn: InventoryService.deduct
+    intent: 扣减库存
+    reads:
+      - inventory(productId, stock)
+    writes:
+      - inventory(stock) via UPDATE
+    on_fail:
+      - inventory_insufficient → reject 400
+
+  - fn: OrderRepository.save
+    intent: 持久化订单
+    writes:
+      - orders(id, userId, totalAmount, status=PENDING) via INSERT
+
+entities:
+  - orders
+  - inventory
+
+events:
+  - order_created

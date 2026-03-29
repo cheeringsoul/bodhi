@@ -1,0 +1,34 @@
+name: order_lifecycle
+entity: orders
+field: status
+description: 订单生命周期
+
+states:
+  - id: INIT
+    value: 0
+    description: 等待支付
+    transitions:
+      - target: PAID
+        trigger: event(payment_success)
+        fn: PaymentCallback.onSuccess
+      - target: CANCELLED
+        trigger: user_action(cancel)
+        fn: OrderService.cancel
+
+  - id: PAID
+    value: 1
+    description: 已支付
+    transitions:
+      - target: COMPLETED
+        trigger: event(delivery_confirmed)
+        fn: DeliveryCallback.onConfirmed
+
+  - id: COMPLETED
+    value: 4
+    description: 订单完成
+    terminal: true
+
+  - id: CANCELLED
+    value: 5
+    description: 已取消
+    terminal: true

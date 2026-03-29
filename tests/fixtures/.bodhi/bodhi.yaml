@@ -1,0 +1,10 @@
+version: "0.1.0"
+project:
+  name: "test-project"
+  description: "Test fixture project"
+  languages: [java, python]
+  frameworks: [spring-boot]
+
+inline:
+  java: javadoc
+  python: docstring

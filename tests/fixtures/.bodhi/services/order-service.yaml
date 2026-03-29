@@ -1,0 +1,30 @@
+name: order-service
+description: 订单核心服务
+port: 8080
+tech_stack: [spring-boot, mysql, kafka]
+
+apis:
+  - method: POST
+    path: /api/orders
+    flow: create_order
+    description: 创建订单
+  - method: GET
+    path: /api/orders/{id}
+    flow: nonexistent_flow
+    description: 查询订单详情
+
+depends_on:
+  - service: payment-service
+    protocol: http
+    apis:
+      - POST /api/payments/hold
+      - POST /api/payments/charge
+    resilience:
+      timeout: 3s
+      retry: 2
+      circuit_breaker: threshold=5, window=60s
+
+  - service: kafka
+    type: mq
+    topics:
+      - order-events
