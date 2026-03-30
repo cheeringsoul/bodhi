@@ -67,12 +67,24 @@ Works with **Java, Python, Go, TypeScript, Kotlin**.
 
 ### 1. Enable DSL generation for new code
 
-Copy `CLAUDE.md` into your project root. Claude Code reads it on every conversation and will follow the DSL generation
-rules:
+Copy `CLAUDE.md` and the Claude Code hook into your project. Claude Code reads `CLAUDE.md` on every conversation
+and follows the DSL generation rules. The hook runs `bodhi validate` after every file edit, surfacing inconsistencies
+immediately so Claude can fix them in the same session.
 
 ```bash
 git clone https://github.com/anthropics/bodhi.git
+
+# Rules file — Claude reads this on every conversation
 cp bodhi/templates/CLAUDE.md /path/to/your-project/CLAUDE.md
+
+# PostToolUse hook — validates DSL after every Edit/Write
+mkdir -p /path/to/your-project/.claude/hooks
+cp bodhi/templates/.claude/settings.json /path/to/your-project/.claude/settings.json
+cp bodhi/templates/.claude/hooks/bodhi-check.sh /path/to/your-project/.claude/hooks/
+chmod +x /path/to/your-project/.claude/hooks/bodhi-check.sh
+
+# Install bodhi-engine so the hook can run
+pip install bodhi-engine
 ```
 
 ### 2. Scan existing code (optional)

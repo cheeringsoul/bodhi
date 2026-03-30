@@ -32,4 +32,11 @@ jobs:
 
       - name: DSL Coverage
         if: always()
-        run: bodhi stats .
+        run: bodhi stats . | tee bodhi-stats.json
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bodhi-stats
+          path: bodhi-stats.json

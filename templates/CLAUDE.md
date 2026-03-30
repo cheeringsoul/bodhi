@@ -1,5 +1,23 @@
 # Bodhi DSL — Code + DSL Co-generation Rules
 
+## Atomic Update Rule
+
+**Code and DSL are a single unit. Every edit to a function must include its DSL update in the same response.**
+
+| Action | Required DSL update |
+|--------|---------------------|
+| Write a new function | Add `@bodhi.*` inline tags |
+| Modify a function body | Re-read current `@bodhi.*` tags, update any that no longer match |
+| Add an API endpoint | Create/update `.bodhi/flows/<name>.yaml` |
+| Modify DB table / ORM model | Update `.bodhi/entities/<table>.yaml` |
+| Add/change state transition logic | Update `.bodhi/states/<name>.yaml` |
+| Add/change event publishing or consumption | Update `.bodhi/events/<name>.yaml` |
+| Add/change cross-service call | Update `.bodhi/services/<name>.yaml` |
+
+**Never split code and DSL across separate responses.** If you realize DSL is missing after writing code, fix it immediately in the same session before doing anything else.
+
+---
+
 When writing code in this project, you **must maintain Bodhi DSL simultaneously**. The DSL has two layers — both are required.
 
 ---
