@@ -1,25 +1,58 @@
 # Bodhi DSL — Code + DSL Co-generation Rules
 
-## Core Principle: DSL is Generated, Not Maintained
+## MANDATORY: Every Public Method MUST Have @bodhi.intent
 
-**DSL is a byproduct of code generation.** When you write or modify code, generate the corresponding DSL at the same time. DSL is never "maintained" separately — if it becomes outdated, it is regenerated from the current code.
+**This is a hard rule, not a suggestion.** When you write or modify any public/exported function or method, you MUST add `@bodhi.intent` in its doc comment BEFORE moving on to the next task. Do NOT batch this — tag each method immediately as you write it.
 
-- When writing new code: generate inline `@bodhi.*` tags and `.bodhi/` YAML files alongside the code
-- When modifying code: regenerate the affected DSL to match the new code
-- When refactoring: regenerate all DSL touched by the refactor
-- If DSL is stale or missing: regenerate it from the current code — don't try to patch it
+**Checklist before finishing any code edit:**
+1. Does every new or modified public method have `@bodhi.intent`? If not, add it now.
+2. Does every method that reads data have `@bodhi.reads`? If not, add it now.
+3. Does every method that writes data have `@bodhi.writes`? If not, add it now.
 
-| Code Change | DSL to Generate |
-|-------------|-----------------|
+**Exceptions (no tags needed):**
+- Simple getters / setters / toString / hashCode / equals
+- Constructors
+- Pure utility functions (string formatting, logging wrappers)
+- Test code
+- Configuration / startup boilerplate (e.g., `main()`, `@Configuration` classes)
+
+**If you forget:** A post-edit hook will block you and list the methods missing tags. Fix them before continuing.
+
+---
+
+## Core Principle: Inline Tags Are the Source of Truth
+
+Bodhi DSL has two layers, but only Layer 1 (inline tags) is written alongside code. Layer 2 (system YAML files) is derived from inline tags on demand — never maintained by hand during coding.
+
+**When writing or modifying code:**
+- Always add/update `@bodhi.*` inline tags in the doc comment of each function
+- Do NOT manually create or update `.bodhi/flows/`, `.bodhi/states/`, `.bodhi/services/`, or `.bodhi/events/` YAML files
+
+**When refactoring:**
+- Update inline tags on affected methods — that's it
+
+**If DSL is stale or missing:**
+- Regenerate inline tags from the current code — don't try to patch them
+
+### Layer 2 is Derived, Not Maintained
+
+System-level views (flows, service topology, event chains, state machines) are **derived from inline tags** by running `/bodhi-scan`. You do NOT need to maintain them while writing code.
+
+| System View | How It's Derived |
+|-------------|------------------|
+| Flow (request chain) | `@bodhi.calls` chain from entry point |
+| Service topology | `@bodhi.calls ... via http/grpc` across services |
+| Event chain | `@bodhi.emits` + `@bodhi.consumes` pairs |
+| State machine | `@bodhi.writes table(status)` + transition logic |
+
+**Only these are written alongside code:**
+
+| Code Change | What to Write |
+|-------------|---------------|
 | Write/modify a function | `@bodhi.*` inline tags in its doc comment |
-| Add/modify an API endpoint | `.bodhi/flows/<name>.yaml` |
 | Add/modify a DB table / ORM model | `.bodhi/entities/<table>.yaml` |
-| Add/modify state transition logic | `.bodhi/states/<name>.yaml` |
-| Add/modify event publishing or consumption | `.bodhi/events/<name>.yaml` |
-| Add/modify cross-service calls | `.bodhi/services/<name>.yaml` |
 | Introduce a business term | `.bodhi/concepts/glossary.yaml` |
-
-The DSL has two layers — both are generated together with the code.
+| Project initialization | `.bodhi/bodhi.yaml` |
 
 ---
 
@@ -121,88 +154,28 @@ public OrderResponse create(CreateOrderRequest req) { ... }
 
 ---
 
-## Layer 2: System Files (generated on structural changes)
+## Layer 2: System Files
 
-When code involves any of the following, generate the corresponding `.bodhi/` YAML files.
+Layer 2 files live in `.bodhi/` and fall into two categories:
 
-### Trigger Rules
+### Written alongside code (manual)
 
-| What You Did | What to Generate |
-|--------------|------------------|
-| Added an HTTP endpoint or request handling chain | `.bodhi/flows/<flow_name>.yaml` |
-| Added a database table or ORM model | `.bodhi/entities/<table_name>.yaml` |
-| Added a status enum or state transition logic | `.bodhi/states/<state_machine_name>.yaml` |
-| Added an event (MQ, EventBus message) | `.bodhi/events/<event_name>.yaml` |
-| Added cross-service calls or dependencies | `.bodhi/services/<service_name>.yaml` |
-| Introduced a new business term or concept | `.bodhi/concepts/glossary.yaml` |
-| Project initialization or framework change | `.bodhi/bodhi.yaml` |
+These are created/updated when you write the corresponding code:
 
-### Flow File — `.bodhi/flows/<name>.yaml`
+- `.bodhi/bodhi.yaml` — project metadata (create once on init)
+- `.bodhi/entities/<table>.yaml` — database table schemas (when you add/modify ORM models or DDL)
+- `.bodhi/concepts/glossary.yaml` — business term definitions (when domain terms appear in code)
 
-When you write an API endpoint or a complete request handling chain, generate the corresponding flow:
+### Derived from inline tags (automatic via `/bodhi-scan`)
 
-```yaml
-name: create_order
-description: Complete order creation flow
+These are NOT maintained during coding. Run `/bodhi-scan flows` or `/bodhi-scan` to generate them from inline tags:
 
-entry:
-  type: http          # http | grpc | mq_consumer | event | scheduler | websocket
-  method: POST
-  path: /api/orders
-  auth: required(role=USER)
+- `.bodhi/flows/<name>.yaml` — derived from `@bodhi.calls` chains starting at entry points
+- `.bodhi/states/<name>.yaml` — derived from `@bodhi.writes table(status)` + transition logic
+- `.bodhi/events/<name>.yaml` — derived from `@bodhi.emits` + `@bodhi.consumes` pairs
+- `.bodhi/services/<name>.yaml` — derived from `@bodhi.calls ... via http/grpc` across services
 
-steps:
-  - fn: OrderController.create
-    intent: Receive request, validate params, orchestrate creation
-    reads:
-      - request.body(userId, items, address)
-    calls:
-      - InventoryService.deduct
-      - OrderRepository.save
-      - EventPublisher.publish
-    on_fail:
-      - validation_failed → reject 400
-
-  - fn: InventoryService.deduct
-    intent: Deduct product inventory
-    reads:
-      - inventory(productId, stock)
-    writes:
-      - inventory(stock) via UPDATE
-    on_fail:
-      - inventory_insufficient → reject 400
-
-  - fn: OrderRepository.save
-    intent: Persist order to database
-    writes:
-      - orders(id, userId, totalAmount, status=PENDING) via INSERT
-    on_fail:
-      - db_write_failed → retry 2 → throw
-
-  - fn: EventPublisher.publish
-    intent: Publish order created domain event
-    emits:
-      - order_created(orderId, userId) to kafka:order-events
-
-error_handling:
-  - condition: inventory_insufficient
-    step: InventoryService.deduct
-    action: reject 400
-  - condition: db_write_failed
-    step: OrderRepository.save
-    action: retry 2 → rollback inventory → reject 500
-
-related_flows:
-  - cancel_order
-  - get_order_detail
-
-entities:
-  - orders
-  - inventory
-
-events:
-  - order_created
-```
+**Do NOT manually create or update flows, states, events, or services YAML files while writing code.** They will be regenerated from inline tags and will overwrite manual edits.
 
 ### Entity File — `.bodhi/entities/<table>.yaml`
 
@@ -247,129 +220,6 @@ relations:
     join: orders.user_id = users.id
 ```
 
-### State Machine File — `.bodhi/states/<name>.yaml`
-
-When you implement state transition logic (enum + transition methods):
-
-```yaml
-name: order_lifecycle
-entity: orders
-field: status
-description: Order lifecycle
-
-states:
-  - id: INIT
-    value: 0
-    description: Awaiting payment
-    transitions:
-      - target: PAID
-        trigger: event(payment_success)
-        fn: PaymentCallback.onSuccess
-      - target: CANCELLED
-        trigger: timeout(30m)
-        fn: OrderScheduler.cancelExpired
-
-  - id: PAID
-    value: 1
-    description: Payment received
-    transitions:
-      - target: SHIPPED
-        trigger: event(shipment_created)
-        fn: ShipmentCallback.onShipped
-
-  - id: COMPLETED
-    value: 4
-    description: Order completed
-    terminal: true
-
-  - id: CANCELLED
-    value: 5
-    description: Order cancelled
-    terminal: true
-    side_effects:
-      - rollback inventory
-      - refund if paid
-```
-
-### Service File — `.bodhi/services/<service_name>.yaml`
-
-Only for microservice / distributed architectures. When you add cross-service calls or modify service dependencies:
-
-```yaml
-name: order-service
-description: Core order service
-port: 8080
-tech_stack: [spring-boot, mysql, kafka]
-
-apis:
-  - method: POST
-    path: /api/orders
-    flow: create_order
-    description: Create order
-
-depends_on:
-  - service: payment-service
-    protocol: http
-    apis:
-      - POST /api/payments/hold
-      - POST /api/payments/charge
-    resilience:
-      timeout: 3s
-      retry: 2
-      circuit_breaker: threshold=5, window=60s
-
-  - service: kafka
-    type: mq
-    topics: [order-events]
-```
-
-### Event File — `.bodhi/events/<event_name>.yaml`
-
-When you implement event publishing or consumption (Kafka, RabbitMQ, EventBus, etc.):
-
-```yaml
-name: order_created
-description: Domain event published after order creation
-channel: kafka:order-events
-
-schema:
-  - field: orderId
-    type: string
-    description: Order ID
-  - field: userId
-    type: string
-    description: User ID
-  - field: totalAmount
-    type: decimal
-    description: Order total amount
-
-producers:
-  - fn: OrderService.create
-    flow: create_order
-
-consumers:
-  - fn: NotificationHandler.onOrderCreated
-    flow: send_order_notification
-    description: Send order notification to user
-```
-
-### Concept File — `.bodhi/concepts/glossary.yaml`
-
-When business terms appear in code (especially in state checks or business rules):
-
-```yaml
-concepts:
-  - term: Closed deal
-    definition: Order status transitions from PAID to COMPLETED, meaning the transaction is fully settled
-    related_states: [PAID, COMPLETED]
-    related_flows: [create_order, confirm_delivery]
-
-  - term: Stock lock
-    definition: Pre-deduct inventory on order creation to prevent overselling
-    related_fields: [inventory.stock, inventory.locked_stock]
-    related_flows: [create_order, cancel_order]
-```
-
 ### Project Metadata — `.bodhi/bodhi.yaml`
 
 Create once on project initialization:
@@ -395,16 +245,18 @@ inline:
 
 **Not sure whether to write DSL? Use this decision tree:**
 
-1. Did you write a function? → Add Layer 1 inline tags
-2. Is this function an API entry point / part of a request handling chain? → Update `.bodhi/flows/`
-3. Did you create or modify a database table? → Update `.bodhi/entities/`
-4. Did you implement a state enum or state transitions? → Update `.bodhi/states/`
-5. Did you implement event publishing or consumption? → Update `.bodhi/events/`
-6. Did you add cross-service calls or dependencies? → Update `.bodhi/services/`
-7. Did you introduce a new business term? → Update `.bodhi/concepts/`
+1. Did you write or modify a function? → Add Layer 1 inline tags (`@bodhi.intent` + relevant tags)
+2. Did you create or modify a database table / ORM model? → Update `.bodhi/entities/`
+3. Did you introduce a new business term? → Update `.bodhi/concepts/`
 
 **What does NOT need DSL:**
 - Pure utility functions (format, log wrapper, string utils)
 - Simple getters/setters
 - Test code
 - Configuration / startup classes
+
+**What is derived automatically (do NOT write by hand):**
+- `.bodhi/flows/` — run `/bodhi-scan flows` to generate
+- `.bodhi/states/` — run `/bodhi-scan` to generate
+- `.bodhi/events/` — run `/bodhi-scan` to generate
+- `.bodhi/services/` — run `/bodhi-scan` to generate
