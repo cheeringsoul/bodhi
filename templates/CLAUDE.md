@@ -1,24 +1,25 @@
 # Bodhi DSL — Code + DSL Co-generation Rules
 
-## Atomic Update Rule
+## Core Principle: DSL is Generated, Not Maintained
 
-**Code and DSL are a single unit. Every edit to a function must include its DSL update in the same response.**
+**DSL is a byproduct of code generation.** When you write or modify code, generate the corresponding DSL at the same time. DSL is never "maintained" separately — if it becomes outdated, it is regenerated from the current code.
 
-| Action | Required DSL update |
-|--------|---------------------|
-| Write a new function | Add `@bodhi.*` inline tags |
-| Modify a function body | Re-read current `@bodhi.*` tags, update any that no longer match |
-| Add an API endpoint | Create/update `.bodhi/flows/<name>.yaml` |
-| Modify DB table / ORM model | Update `.bodhi/entities/<table>.yaml` |
-| Add/change state transition logic | Update `.bodhi/states/<name>.yaml` |
-| Add/change event publishing or consumption | Update `.bodhi/events/<name>.yaml` |
-| Add/change cross-service call | Update `.bodhi/services/<name>.yaml` |
+- When writing new code: generate inline `@bodhi.*` tags and `.bodhi/` YAML files alongside the code
+- When modifying code: regenerate the affected DSL to match the new code
+- When refactoring: regenerate all DSL touched by the refactor
+- If DSL is stale or missing: regenerate it from the current code — don't try to patch it
 
-**Never split code and DSL across separate responses.** If you realize DSL is missing after writing code, fix it immediately in the same session before doing anything else.
+| Code Change | DSL to Generate |
+|-------------|-----------------|
+| Write/modify a function | `@bodhi.*` inline tags in its doc comment |
+| Add/modify an API endpoint | `.bodhi/flows/<name>.yaml` |
+| Add/modify a DB table / ORM model | `.bodhi/entities/<table>.yaml` |
+| Add/modify state transition logic | `.bodhi/states/<name>.yaml` |
+| Add/modify event publishing or consumption | `.bodhi/events/<name>.yaml` |
+| Add/modify cross-service calls | `.bodhi/services/<name>.yaml` |
+| Introduce a business term | `.bodhi/concepts/glossary.yaml` |
 
----
-
-When writing code in this project, you **must maintain Bodhi DSL simultaneously**. The DSL has two layers — both are required.
+The DSL has two layers — both are generated together with the code.
 
 ---
 
@@ -70,7 +71,7 @@ Use `to internal` / `from internal` for in-process event buses, and `to kafka:<t
 
 ---
 
-## Layer 1: Inline Tags (every function you write or modify)
+## Layer 1: Inline Tags (every function you write)
 
 Add `@bodhi.*` tags in the doc comment of each function/method.
 
@@ -120,25 +121,25 @@ public OrderResponse create(CreateOrderRequest req) { ... }
 
 ---
 
-## Layer 2: System Files (on structural changes)
+## Layer 2: System Files (generated on structural changes)
 
-When code changes involve any of the following, you must update the corresponding `.bodhi/` YAML files.
+When code involves any of the following, generate the corresponding `.bodhi/` YAML files.
 
 ### Trigger Rules
 
-| What You Did | What to Update |
-|--------------|----------------|
-| Added/modified an HTTP endpoint or request handling chain | `.bodhi/flows/<flow_name>.yaml` |
-| Added/modified a database table or ORM model | `.bodhi/entities/<table_name>.yaml` |
-| Added/modified a status enum or state transition logic | `.bodhi/states/<state_machine_name>.yaml` |
-| Added/modified an event (MQ, EventBus message) | `.bodhi/events/<event_name>.yaml` |
-| Added/modified cross-service calls or dependencies | `.bodhi/services/<service_name>.yaml` |
+| What You Did | What to Generate |
+|--------------|------------------|
+| Added an HTTP endpoint or request handling chain | `.bodhi/flows/<flow_name>.yaml` |
+| Added a database table or ORM model | `.bodhi/entities/<table_name>.yaml` |
+| Added a status enum or state transition logic | `.bodhi/states/<state_machine_name>.yaml` |
+| Added an event (MQ, EventBus message) | `.bodhi/events/<event_name>.yaml` |
+| Added cross-service calls or dependencies | `.bodhi/services/<service_name>.yaml` |
 | Introduced a new business term or concept | `.bodhi/concepts/glossary.yaml` |
 | Project initialization or framework change | `.bodhi/bodhi.yaml` |
 
 ### Flow File — `.bodhi/flows/<name>.yaml`
 
-When you write an API endpoint or a complete request handling chain, create or update the corresponding flow:
+When you write an API endpoint or a complete request handling chain, generate the corresponding flow:
 
 ```yaml
 name: create_order
@@ -205,7 +206,7 @@ events:
 
 ### Entity File — `.bodhi/entities/<table>.yaml`
 
-When you create or modify a database table / ORM model:
+When you create a database table / ORM model:
 
 ```yaml
 table: orders

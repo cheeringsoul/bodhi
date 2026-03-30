@@ -36,8 +36,8 @@ one that knows what it does and why, and can explain itself to any AI agent that
 
 1. **Completeness**: DSL carries enough information to support bug triage, impact analysis, code Q&A, test generation,
    and cross-service tracing.
-2. **Generatability**: AI can produce 3–5 tags per function immediately after writing it, without needing to understand
-   the entire system.
+2. **Generatability**: AI generates DSL as a byproduct of writing code. DSL is never "maintained" — if it becomes
+   outdated, it is regenerated from the current code.
 3. **Extensibility**: The `@bodhi.*` namespace allows infinite extension without schema changes.
 4. **Language-agnostic**: Works with Java, Python, Go, TypeScript, Kotlin — adapting to each language's doc comment
    syntax.
@@ -55,14 +55,14 @@ one that knows what it does and why, and can explain itself to any AI agent that
 │  ─────────────────────────────────                           │
 │  Location: doc comments of functions/methods                 │
 │  Granularity: single function                                │
-│  Maintained by: AI auto-generation + manual edits            │
+│  Maintained by: AI auto-generation                          │
 │  Answers: "What does this function do?"                      │
 │                                                              │
 │  Layer 2: System Files (.bodhi/)                             │
 │  ─────────────────────────────────                           │
 │  Location: .bodhi/ directory at project root                 │
 │  Granularity: cross-function / cross-module / system-wide    │
-│  Maintained by: AI aggregation + manual business context     │
+│  Maintained by: AI auto-generation                           │
 │  Answers: "How does the system work?"                        │
 │                                                              │
 │  ┌─────────┐   aggregate   ┌──────────┐                     │
@@ -80,7 +80,7 @@ one that knows what it does and why, and can explain itself to any AI agent that
 |------------------|--------------------------------------|------------------------------------------------|
 | Location         | Code doc comments                    | `.bodhi/` YAML files                           |
 | Granularity      | Single function/method               | Cross-function flows, state machines, entities |
-| Maintained by    | AI auto-generation as primary        | AI aggregation + human business context        |
+| Maintained by    | AI auto-generation                   | AI auto-generation                             |
 | Change frequency | High (follows code changes)          | Medium (when business flows change)            |
 | Core value       | Answers "what does this function do" | Answers "how does this business work"          |
 
@@ -1007,7 +1007,8 @@ Version follows semantic versioning:
 - **minor (0.x.0)**: New required tags or changed tag semantics, migration scripts provided
 - **major (x.0.0)**: Breaking changes
 
-The `.bodhi/` directory is committed to version control alongside code:
+The `.bodhi/` directory is committed to version control alongside code. Since DSL is always regenerated (not manually
+maintained), version control serves as a snapshot of the DSL state at each commit:
 
 - DSL changes are traceable via `git blame`
 - Code reviews include DSL review
@@ -1063,7 +1064,6 @@ with adoption:
 |-----------------------|-------------------------------------------------|--------------------------------------------|
 | ORM model definitions | Auto-extract field names, types, relations      | High (structure accurate, lacks semantics) |
 | Migration / DDL       | Parse SQL changes                               | Medium (structure only)                    |
-| AI analysis           | Infer field meaning from code context           | Medium (needs human confirmation)          |
-| Manual authoring      | Developer fills in enum, description, sensitive | Highest                                    |
+| AI analysis           | Infer field meaning from code context           | High (AI understands business context from requirements) |
 
-Recommended flow: **Auto-extract structure → AI augments semantics → Human confirms key fields (enum, sensitive)**
+Recommended flow: **AI generates complete entity definitions (structure + semantics) during code generation**
