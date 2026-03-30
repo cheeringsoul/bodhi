@@ -183,7 +183,7 @@ bodhi/
 
 ## Full Specification
 
-See [bodhi_dsl_specification.md](docs/bodhi_dsl_specification.md) for the complete DSL specification.
+See [bodhi-dsl-specification.md](docs/bodhi-dsl-specification.md) for the complete DSL specification.
 
 ## Architecture & Vision
 
