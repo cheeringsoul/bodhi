@@ -22,6 +22,54 @@ When writing code in this project, you **must maintain Bodhi DSL simultaneously*
 
 ---
 
+## DSL-Friendly Code Conventions
+
+To ensure generated code works well with Bodhi DSL parsing and validation, follow these rules:
+
+### No Method Overloading
+
+Do not use method overloading (multiple methods with the same name but different parameters). Bodhi DSL uses `ClassName.methodName` as the unique identifier — overloaded methods cause ambiguity.
+
+- Bad: `create(Order)`, `create(BatchOrder)`
+- Good: `createOrder(Order)`, `createBatchOrder(BatchOrder)`
+
+If you absolutely must have similar methods, use distinct names with a business-meaningful suffix (e.g., `createSingle`, `createBatch`), not numeric suffixes.
+
+### Prefer Explicit Over Framework Magic
+
+- Avoid relying on implicit framework behaviors that are invisible in source code
+- When using IoC/DI frameworks (Spring, Guice, etc.), place `@bodhi.*` tags on the **interface** method, not the implementation — callers depend on the interface
+- For Spring Data / MyBatis repositories with no implementation class, tag the interface method directly:
+
+```java
+/**
+ * @bodhi.intent Query orders by user ID, sorted by creation time desc
+ * @bodhi.reads orders(id, userId, status, totalAmount) WHERE userId = ?
+ */
+List<Order> findByUserIdOrderByCreatedAtDesc(String userId);
+```
+
+### Make Event Chains Explicit
+
+Framework-managed event dispatch (e.g., `ApplicationEventPublisher`, `@EventListener`) breaks static call chains. Always use `@bodhi.emits` and `@bodhi.consumes` to make these connections visible:
+
+```java
+// Publisher
+/** @bodhi.emits order_created(orderId) to internal */
+public void create(...) {
+    eventPublisher.publishEvent(new OrderCreatedEvent(...));
+}
+
+// Consumer
+/** @bodhi.consumes order_created(orderId) from internal */
+@EventListener
+public void onOrderCreated(OrderCreatedEvent event) { ... }
+```
+
+Use `to internal` / `from internal` for in-process event buses, and `to kafka:<topic>` / `from kafka:<topic>` for message queues.
+
+---
+
 ## Layer 1: Inline Tags (every function you write or modify)
 
 Add `@bodhi.*` tags in the doc comment of each function/method.
