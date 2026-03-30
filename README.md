@@ -185,6 +185,10 @@ bodhi/
 
 See [bodhi_dsl_specification.md](docs/bodhi_dsl_specification.md) for the complete DSL specification.
 
+## Architecture & Vision
+
+See [architecture-and-vision.md](docs/architecture-and-vision.md) for the target architecture (MCP server), future data sources (DB, logs, metrics, traces), and long-term vision (cross-repo tracing, intent-to-code generation, living architecture diagrams).
+
 ## License
 
 MIT
