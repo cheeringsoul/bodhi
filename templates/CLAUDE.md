@@ -1,13 +1,25 @@
 # Bodhi DSL — Code + DSL Co-generation Rules
 
+## CRITICAL: DSL-First Workflow
+
+When implementing a new feature, API endpoint, or event-driven workflow, you MUST design before coding:
+
+1. **Design the flow** — create/update `.bodhi/flows/<name>.yaml` with entry point, steps, entities, events
+2. **Define entities** — create/update `.bodhi/entities/<table>.yaml` for any new tables
+3. **Define events** — create/update `.bodhi/events/<name>.yaml` for any new events
+4. **Implement** — write each method with inline tags + code together (see Co-generation below)
+5. **Validate** — the post-edit hook will verify completeness automatically
+
+Do NOT jump straight to writing code. The flow YAML is your contract.
+
+**When to use DSL-first:** new features, new API endpoints, new event workflows, new service integrations.
+**When to skip (just co-generate):** bug fixes, refactoring without behavior change, adding a field, performance optimization.
+
+---
+
 ## MANDATORY: Every Public Method MUST Have @bodhi.intent
 
 **This is a hard rule, not a suggestion.** When you write or modify any public/exported function or method, you MUST add `@bodhi.intent` in its doc comment BEFORE moving on to the next task. Do NOT batch this — tag each method immediately as you write it.
-
-**Checklist before finishing any code edit:**
-1. Does every new or modified public method have `@bodhi.intent`? If not, add it now.
-2. Does every method that reads data have `@bodhi.reads`? If not, add it now.
-3. Does every method that writes data have `@bodhi.writes`? If not, add it now.
 
 **Exceptions (no tags needed):**
 - Simple getters / setters / toString / hashCode / equals
@@ -20,91 +32,60 @@
 
 ---
 
-## Core Principle: Inline Tags Are the Source of Truth
+## Self-Check: 6 Questions Before Moving to Next Method
 
-Bodhi DSL has two layers, but only Layer 1 (inline tags) is written alongside code. Layer 2 (system YAML files) is derived from inline tags on demand — never maintained by hand during coding.
+After writing each method, answer these questions. If the answer is "yes" but the tag is missing, add it NOW:
 
-**When writing or modifying code:**
-- Always add/update `@bodhi.*` inline tags in the doc comment of each function
-- Do NOT manually create or update `.bodhi/flows/`, `.bodhi/states/`, `.bodhi/services/`, or `.bodhi/events/` YAML files
-
-**When refactoring:**
-- Update inline tags on affected methods — that's it
-
-**If DSL is stale or missing:**
-- Regenerate inline tags from the current code — don't try to patch them
-
-### Layer 2 is Derived, Not Maintained
-
-System-level views (flows, service topology, event chains, state machines) are **derived from inline tags** by running `/bodhi-scan`. You do NOT need to maintain them while writing code.
-
-| System View | How It's Derived |
-|-------------|------------------|
-| Flow (request chain) | `@bodhi.calls` chain from entry point |
-| Service topology | `@bodhi.calls ... via http/grpc` across services |
-| Event chain | `@bodhi.emits` + `@bodhi.consumes` pairs |
-| State machine | `@bodhi.writes table(status)` + transition logic |
-
-**Only these are written alongside code:**
-
-| Code Change | What to Write |
-|-------------|---------------|
-| Write/modify a function | `@bodhi.*` inline tags in its doc comment |
-| Add/modify a DB table / ORM model | `.bodhi/entities/<table>.yaml` |
-| Introduce a business term | `.bodhi/concepts/glossary.yaml` |
-| Project initialization | `.bodhi/bodhi.yaml` |
+1. Does this method read external input (request, DB, cache)? → Need `@bodhi.reads`
+2. Does this method write to storage (DB, cache, file)? → Need `@bodhi.writes`
+3. Does this method call another service or key internal method? → Need `@bodhi.calls`
+4. Does this method publish an event (MQ, EventBus, WebSocket)? → Need `@bodhi.emits`
+5. Does this method consume an event? → Need `@bodhi.consumes`
+6. Can this method fail in a business-meaningful way? → Need `@bodhi.on_fail`
 
 ---
 
-## DSL-Friendly Code Conventions
+## What Complete DSL Looks Like (vs Incomplete)
 
-To ensure generated code works well with Bodhi DSL parsing and validation, follow these rules:
-
-### No Method Overloading
-
-Do not use method overloading (multiple methods with the same name but different parameters). Bodhi DSL uses `ClassName.methodName` as the unique identifier — overloaded methods cause ambiguity.
-
-- Bad: `create(Order)`, `create(BatchOrder)`
-- Good: `createOrder(Order)`, `createBatchOrder(BatchOrder)`
-
-If you absolutely must have similar methods, use distinct names with a business-meaningful suffix (e.g., `createSingle`, `createBatch`), not numeric suffixes.
-
-### Prefer Explicit Over Framework Magic
-
-- Avoid relying on implicit framework behaviors that are invisible in source code
-- When using IoC/DI frameworks (Spring, Guice, etc.), place `@bodhi.*` tags on the **interface** method, not the implementation — callers depend on the interface
-- For Spring Data / MyBatis repositories with no implementation class, tag the interface method directly:
+❌ **WRONG — intent only, everything else missing:**
 
 ```java
 /**
- * @bodhi.intent Query orders by user ID, sorted by creation time desc
- * @bodhi.reads orders(id, userId, status, totalAmount) WHERE userId = ?
+ * @bodhi.intent Create order
  */
-List<Order> findByUserIdOrderByCreatedAtDesc(String userId);
+public OrderResponse create(CreateOrderRequest req) {
+    Order order = new Order(req.getUserId(), req.getItems());
+    orderRepository.save(order);
+    inventoryService.deduct(order.getItems());
+    paymentService.hold(order.getTotalAmount());
+    kafkaTemplate.send("order-events", new OrderCreatedEvent(order));
+    return new OrderResponse(order.getId());
+}
 ```
 
-### Make Event Chains Explicit
+This method reads request body, writes to DB, calls two services, emits an event, and can fail — but only has `@bodhi.intent`. The deriver gets almost nothing useful.
 
-Framework-managed event dispatch (e.g., `ApplicationEventPublisher`, `@EventListener`) breaks static call chains. Always use `@bodhi.emits` and `@bodhi.consumes` to make these connections visible:
+✅ **CORRECT — all relevant tags present:**
 
 ```java
-// Publisher
-/** @bodhi.emits order_created(orderId) to internal */
-public void create(...) {
-    eventPublisher.publishEvent(new OrderCreatedEvent(...));
+/**
+ * @bodhi.intent Create order, deduct inventory, hold payment, publish event
+ * @bodhi.reads request.body(userId, items, address)
+ * @bodhi.writes orders(id, userId, totalAmount, status=PENDING) via INSERT
+ * @bodhi.calls InventoryService.deduct via grpc:InventoryService/Deduct
+ * @bodhi.calls PaymentService.hold via http:POST /api/payments/hold
+ * @bodhi.emits order_created(orderId, userId, totalAmount) to kafka:order-events
+ * @bodhi.on_fail inventory_insufficient → reject 400
+ * @bodhi.on_fail payment_timeout → circuit_breaker(threshold=5, window=60s) → reject 503
+ */
+public OrderResponse create(CreateOrderRequest req) {
+    // implementation...
 }
-
-// Consumer
-/** @bodhi.consumes order_created(orderId) from internal */
-@EventListener
-public void onOrderCreated(OrderCreatedEvent event) { ... }
 ```
-
-Use `to internal` / `from internal` for in-process event buses, and `to kafka:<topic>` / `from kafka:<topic>` for message queues.
 
 ---
 
-## Layer 1: Inline Tags (every function you write)
+## Layer 1: Inline Tags
 
 Add `@bodhi.*` tags in the doc comment of each function/method.
 
@@ -135,22 +116,6 @@ Add `@bodhi.*` tags in the doc comment of each function/method.
 **Java/Kotlin/TypeScript**: Place in `/** */` JSDoc/Javadoc
 **Python**: Place in `"""` docstring
 **Go**: Place in `//` line comments
-
-### Example
-
-```java
-/**
- * @bodhi.intent Create order, deduct inventory, publish domain event
- * @bodhi.reads request.body(userId, items, address)
- * @bodhi.writes orders(id, userId, totalAmount, status=PENDING) via INSERT
- * @bodhi.calls InventoryService.deduct via grpc:InventoryService/Deduct
- * @bodhi.calls PaymentService.hold via http:POST /api/payments/hold
- * @bodhi.emits order_created(orderId, userId) to kafka:order-events
- * @bodhi.on_fail inventory_insufficient → reject 400
- * @bodhi.on_fail payment_timeout → circuit_breaker(threshold=5, window=60s) → reject 503
- */
-public OrderResponse create(CreateOrderRequest req) { ... }
-```
 
 ---
 
@@ -194,7 +159,7 @@ fields:
   - name: status
     type: int
     description: Order status
-    state_machine: order_lifecycle    # Link to state machine if stateful
+    state_machine: order_lifecycle
     enum:
       0: INIT
       1: PAID
@@ -204,7 +169,7 @@ fields:
   - name: phone
     type: string
     description: User contact phone
-    sensitive: true                   # PII sensitive data flag
+    sensitive: true
 
 indexes:
   - name: idx_user_status
@@ -241,9 +206,43 @@ inline:
 
 ---
 
-## Decision Tree
+## DSL-Friendly Code Conventions
 
-**Not sure whether to write DSL? Use this decision tree:**
+### No Method Overloading
+
+Do not use method overloading. Bodhi DSL uses `ClassName.methodName` as the unique identifier — overloaded methods cause ambiguity.
+
+- Bad: `create(Order)`, `create(BatchOrder)`
+- Good: `createOrder(Order)`, `createBatchOrder(BatchOrder)`
+
+### Prefer Explicit Over Framework Magic
+
+- Avoid relying on implicit framework behaviors invisible in source code
+- When using IoC/DI frameworks, place `@bodhi.*` tags on the **interface** method, not the implementation
+- For Spring Data / MyBatis repositories with no implementation class, tag the interface method directly
+
+### Make Event Chains Explicit
+
+Framework-managed event dispatch breaks static call chains. Always use `@bodhi.emits` and `@bodhi.consumes`:
+
+```java
+// Publisher
+/** @bodhi.emits order_created(orderId) to internal */
+public void create(...) {
+    eventPublisher.publishEvent(new OrderCreatedEvent(...));
+}
+
+// Consumer
+/** @bodhi.consumes order_created(orderId) from internal */
+@EventListener
+public void onOrderCreated(OrderCreatedEvent event) { ... }
+```
+
+Use `to internal` / `from internal` for in-process event buses, and `to kafka:<topic>` / `from kafka:<topic>` for message queues.
+
+---
+
+## Decision Tree
 
 1. Did you write or modify a function? → Add Layer 1 inline tags (`@bodhi.intent` + relevant tags)
 2. Did you create or modify a database table / ORM model? → Update `.bodhi/entities/`
@@ -254,9 +253,3 @@ inline:
 - Simple getters/setters
 - Test code
 - Configuration / startup classes
-
-**What is derived automatically (do NOT write by hand):**
-- `.bodhi/flows/` — run `/bodhi-scan flows` to generate
-- `.bodhi/states/` — run `/bodhi-scan` to generate
-- `.bodhi/events/` — run `/bodhi-scan` to generate
-- `.bodhi/services/` — run `/bodhi-scan` to generate

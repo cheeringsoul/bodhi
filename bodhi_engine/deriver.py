@@ -1,13 +1,22 @@
 """
-Derive Layer 2 YAML files from Layer 1 inline tags.
+Derive and validate Layer 2 YAML files against Layer 1 inline tags.
 
-This module implements deterministic derivation (no AI involved):
+This module has two roles:
+
+1. **Derivation** (cold-start / scaffold): deterministically derive flows,
+   events, and service dependencies from inline @bodhi.* tags.
+
+2. **Validation** (primary use): compare what inline tags imply against
+   the hand-written .bodhi/ YAML files and report inconsistencies.
+
+Derivation functions (no AI involved):
 - flows: trace @bodhi.calls chains from entry points
 - events: pair @bodhi.emits with @bodhi.consumes
 - services: group @bodhi.calls ... via by target service
 """
 
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -17,8 +26,57 @@ from .parser.inline import FunctionDSL, parse_directory
 from .parser.yaml_parser import (
     Flow, FlowStep, Event, EventEndpoint, EventSchemaField,
     Service, ServiceApi, ServiceDependency,
+    load_bodhi_dir,
 )
 
+
+# ============================================================
+# Consistency issue model
+# ============================================================
+
+@dataclass
+class ConsistencyIssue:
+    """A single inconsistency between inline tags and YAML files."""
+    severity: str          # "error" | "warning"
+    category: str          # "flow" | "event" | "service" | "entity"
+    message: str
+    source: str = ""       # e.g. "OrderService.create" or "flows/create_order.yaml"
+
+    def __str__(self) -> str:
+        prefix = f"[{self.severity.upper()}]"
+        src = f" ({self.source})" if self.source else ""
+        return f"{prefix} [{self.category}]{src} {self.message}"
+
+
+@dataclass
+class ConsistencyReport:
+    """Result of validate_consistency()."""
+    issues: list[ConsistencyIssue] = field(default_factory=list)
+
+    @property
+    def errors(self) -> list[ConsistencyIssue]:
+        return [i for i in self.issues if i.severity == "error"]
+
+    @property
+    def warnings(self) -> list[ConsistencyIssue]:
+        return [i for i in self.issues if i.severity == "warning"]
+
+    @property
+    def is_consistent(self) -> bool:
+        return len(self.errors) == 0
+
+    def summary(self) -> str:
+        if not self.issues:
+            return "All consistent. No issues found."
+        lines = [f"{len(self.errors)} error(s), {len(self.warnings)} warning(s):"]
+        for issue in self.issues:
+            lines.append(f"  {issue}")
+        return "\n".join(lines)
+
+
+# ============================================================
+# Parse helpers
+# ============================================================
 
 def _parse_emits_value(val: str) -> tuple[str, list[str], Optional[str]]:
     """Parse '@bodhi.emits order_created(orderId, userId) to kafka:order-events'.
@@ -112,6 +170,16 @@ def _build_fn_index(functions: list[FunctionDSL]) -> dict[str, FunctionDSL]:
     return index
 
 
+def _to_snake_case(name: str) -> str:
+    """Convert camelCase/PascalCase to snake_case."""
+    s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
+# ============================================================
+# Derivation functions
+# ============================================================
+
 def derive_flows(functions: list[FunctionDSL]) -> list[Flow]:
     """Derive flows by tracing @bodhi.calls chains from entry points.
 
@@ -127,7 +195,6 @@ def derive_flows(functions: list[FunctionDSL]) -> list[Flow]:
     for fn in functions:
         for call_val in fn.calls:
             name, _ = _parse_calls_value(call_val)
-            # Handle comma-separated calls that were already split by FunctionDSL.calls
             called_fns.add(name)
 
     # Entry points: functions with request reads or consumes, or not called by anyone
@@ -222,7 +289,6 @@ def derive_flows(functions: list[FunctionDSL]) -> list[Flow]:
 
 def derive_events(functions: list[FunctionDSL]) -> list[Event]:
     """Derive events by pairing @bodhi.emits with @bodhi.consumes."""
-    # Collect all events
     event_data: dict[str, dict] = {}
 
     for fn in functions:
@@ -287,7 +353,6 @@ def derive_services(functions: list[FunctionDSL]) -> list[ServiceDependency]:
                 if not via:
                     continue
 
-                # Extract service name from ClassName.method
                 service_name = name.split(".")[0] if "." in name else name
 
                 if service_name not in deps:
@@ -296,10 +361,8 @@ def derive_services(functions: list[FunctionDSL]) -> list[ServiceDependency]:
                         "apis": set(),
                     }
 
-                # Parse protocol
                 if via.startswith("http:"):
                     deps[service_name]["protocol"] = "http"
-                    # e.g. "http:POST /api/payments/hold"
                     api_part = via[len("http:"):].strip()
                     deps[service_name]["apis"].add(api_part)
                 elif via.startswith("grpc"):
@@ -321,13 +384,306 @@ def derive_services(functions: list[FunctionDSL]) -> list[ServiceDependency]:
     return result
 
 
-def _to_snake_case(name: str) -> str:
-    """Convert camelCase/PascalCase to snake_case."""
-    s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+# ============================================================
+# Validation: compare derived data against hand-written YAML
+# ============================================================
+
+def validate_consistency(project_root: Path, bodhi_dir: Optional[Path] = None) -> ConsistencyReport:
+    """Compare inline tags against .bodhi/ YAML files and report inconsistencies.
+
+    This is the primary use of the deriver in a DSL-first workflow:
+    the YAML files are written first (by human or AI), then code is
+    implemented with inline tags. This function checks that the two
+    sides agree.
+
+    Returns a ConsistencyReport with all issues found.
+    """
+    if bodhi_dir is None:
+        bodhi_dir = project_root / ".bodhi"
+
+    report = ConsistencyReport()
+
+    # Parse inline tags from source code
+    functions = parse_directory(project_root)
+    if not functions:
+        report.issues.append(ConsistencyIssue(
+            severity="warning",
+            category="general",
+            message="No inline @bodhi.* tags found in source code.",
+        ))
+        return report
+
+    # Load hand-written YAML
+    if not bodhi_dir.is_dir():
+        report.issues.append(ConsistencyIssue(
+            severity="warning",
+            category="general",
+            message=f".bodhi/ directory not found at {bodhi_dir}",
+        ))
+        return report
+
+    yaml_data = load_bodhi_dir(bodhi_dir)
+
+    # --- Flow validation ---
+    _validate_flows(functions, yaml_data.get("flows", []), report)
+
+    # --- Event validation ---
+    _validate_events(functions, yaml_data.get("events", []), report)
+
+    # --- Service dependency validation ---
+    _validate_services(functions, yaml_data.get("services", []), report)
+
+    # --- Entity validation ---
+    _validate_entities(functions, yaml_data.get("entities", []), report)
+
+    return report
 
 
-# --- YAML output ---
+def _validate_flows(
+    functions: list[FunctionDSL],
+    yaml_flows: list[Flow],
+    report: ConsistencyReport,
+) -> None:
+    """Check that inline tags and flow YAML files are consistent."""
+    derived_flows = derive_flows(functions)
+
+    yaml_flow_names = {f.name for f in yaml_flows}
+    derived_flow_names = {f.name for f in derived_flows}
+
+    # Build indexes
+    yaml_flow_index = {f.name: f for f in yaml_flows}
+    derived_flow_index = {f.name: f for f in derived_flows}
+
+    # Functions referenced in YAML flows
+    yaml_flow_fns: dict[str, set[str]] = {}
+    for f in yaml_flows:
+        yaml_flow_fns[f.name] = {s.fn for s in f.steps}
+
+    derived_flow_fns: dict[str, set[str]] = {}
+    for f in derived_flows:
+        derived_flow_fns[f.name] = {s.fn for s in f.steps}
+
+    # Check: functions in YAML flow steps that have no inline tags
+    fn_index = _build_fn_index(functions)
+    for flow in yaml_flows:
+        for step in flow.steps:
+            if step.fn not in fn_index:
+                report.issues.append(ConsistencyIssue(
+                    severity="error",
+                    category="flow",
+                    message=f"Step '{step.fn}' in flow YAML has no matching inline tags in source code.",
+                    source=f"flows/{flow.name}.yaml",
+                ))
+
+    # Check: entities referenced in YAML flow but not found in inline tags
+    for flow in yaml_flows:
+        derived = derived_flow_index.get(flow.name)
+        if not derived:
+            # Try matching by entry function
+            for df in derived_flows:
+                if df.steps and flow.steps and df.steps[0].fn == flow.steps[0].fn:
+                    derived = df
+                    break
+
+        if derived:
+            # Entities in YAML but not derived from tags
+            yaml_entities = set(flow.entities)
+            derived_entities = set(derived.entities)
+            for entity in yaml_entities - derived_entities:
+                report.issues.append(ConsistencyIssue(
+                    severity="warning",
+                    category="flow",
+                    message=f"Entity '{entity}' listed in flow YAML but not found in inline tags.",
+                    source=f"flows/{flow.name}.yaml",
+                ))
+
+            # Events in YAML but not derived from tags
+            yaml_events = set(flow.events)
+            derived_events = set(derived.events)
+            for event in yaml_events - derived_events:
+                report.issues.append(ConsistencyIssue(
+                    severity="warning",
+                    category="flow",
+                    message=f"Event '{event}' listed in flow YAML but not found in inline tags.",
+                    source=f"flows/{flow.name}.yaml",
+                ))
+
+    # Check: derived flows that have no corresponding YAML file
+    # Match by entry function since names may differ
+    yaml_entry_fns = set()
+    for f in yaml_flows:
+        if f.steps:
+            yaml_entry_fns.add(f.steps[0].fn)
+
+    for df in derived_flows:
+        if df.steps:
+            entry_fn = df.steps[0].fn
+            if entry_fn not in yaml_entry_fns:
+                report.issues.append(ConsistencyIssue(
+                    severity="warning",
+                    category="flow",
+                    message=f"Entry point '{entry_fn}' found in code but has no corresponding flow YAML.",
+                    source=entry_fn,
+                ))
+
+
+def _validate_events(
+    functions: list[FunctionDSL],
+    yaml_events: list[Event],
+    report: ConsistencyReport,
+) -> None:
+    """Check that inline event tags and event YAML files are consistent."""
+    derived_events = derive_events(functions)
+
+    yaml_event_names = {e.name for e in yaml_events}
+    derived_event_names = {e.name for e in derived_events}
+    yaml_event_index = {e.name: e for e in yaml_events}
+    derived_event_index = {e.name: e for e in derived_events}
+
+    # Events in code but not in YAML
+    for name in derived_event_names - yaml_event_names:
+        report.issues.append(ConsistencyIssue(
+            severity="error",
+            category="event",
+            message=f"Event '{name}' found in inline tags but has no YAML definition.",
+            source=name,
+        ))
+
+    # Events in YAML but not in code
+    for name in yaml_event_names - derived_event_names:
+        report.issues.append(ConsistencyIssue(
+            severity="warning",
+            category="event",
+            message=f"Event '{name}' defined in YAML but not found in any inline tags.",
+            source=f"events/{name}.yaml",
+        ))
+
+    # For events in both, check producer/consumer consistency
+    for name in yaml_event_names & derived_event_names:
+        ye = yaml_event_index[name]
+        de = derived_event_index[name]
+
+        # Check producers
+        yaml_producer_fns = {p.fn for p in ye.producers}
+        derived_producer_fns = {p.fn for p in de.producers}
+        for fn in derived_producer_fns - yaml_producer_fns:
+            report.issues.append(ConsistencyIssue(
+                severity="error",
+                category="event",
+                message=f"'{fn}' emits '{name}' in code but is not listed as a producer in YAML.",
+                source=f"events/{name}.yaml",
+            ))
+        for fn in yaml_producer_fns - derived_producer_fns:
+            report.issues.append(ConsistencyIssue(
+                severity="warning",
+                category="event",
+                message=f"'{fn}' listed as producer of '{name}' in YAML but no @bodhi.emits found in code.",
+                source=f"events/{name}.yaml",
+            ))
+
+        # Check consumers
+        yaml_consumer_fns = {c.fn for c in ye.consumers}
+        derived_consumer_fns = {c.fn for c in de.consumers}
+        for fn in derived_consumer_fns - yaml_consumer_fns:
+            report.issues.append(ConsistencyIssue(
+                severity="error",
+                category="event",
+                message=f"'{fn}' consumes '{name}' in code but is not listed as a consumer in YAML.",
+                source=f"events/{name}.yaml",
+            ))
+        for fn in yaml_consumer_fns - derived_consumer_fns:
+            report.issues.append(ConsistencyIssue(
+                severity="warning",
+                category="event",
+                message=f"'{fn}' listed as consumer of '{name}' in YAML but no @bodhi.consumes found in code.",
+                source=f"events/{name}.yaml",
+            ))
+
+        # Check channel consistency
+        if ye.channel and de.channel and ye.channel != de.channel:
+            report.issues.append(ConsistencyIssue(
+                severity="error",
+                category="event",
+                message=f"Event '{name}' channel mismatch: YAML='{ye.channel}', code='{de.channel}'.",
+                source=f"events/{name}.yaml",
+            ))
+
+        # Check schema fields
+        yaml_fields = {s.field for s in ye.schema}
+        derived_fields = {s.field for s in de.schema}
+        for f in derived_fields - yaml_fields:
+            report.issues.append(ConsistencyIssue(
+                severity="warning",
+                category="event",
+                message=f"Field '{f}' found in inline tags for event '{name}' but missing from YAML schema.",
+                source=f"events/{name}.yaml",
+            ))
+
+
+def _validate_services(
+    functions: list[FunctionDSL],
+    yaml_services: list[Service],
+    report: ConsistencyReport,
+) -> None:
+    """Check that inline @bodhi.calls via tags match service YAML depends_on."""
+    derived_deps = derive_services(functions)
+
+    # Collect all service dependencies from YAML
+    yaml_dep_services: set[str] = set()
+    for svc in yaml_services:
+        for dep in svc.depends_on:
+            yaml_dep_services.add(dep.service)
+
+    derived_dep_services = {d.service for d in derived_deps}
+
+    # Remote calls in code but not in YAML
+    for name in derived_dep_services - yaml_dep_services:
+        report.issues.append(ConsistencyIssue(
+            severity="error",
+            category="service",
+            message=f"Remote dependency on '{name}' found in code (@bodhi.calls via) but not in any service YAML depends_on.",
+            source=name,
+        ))
+
+    # Dependencies in YAML but not in code
+    for name in yaml_dep_services - derived_dep_services:
+        report.issues.append(ConsistencyIssue(
+            severity="warning",
+            category="service",
+            message=f"Service '{name}' listed in YAML depends_on but no @bodhi.calls via found in code.",
+            source=name,
+        ))
+
+
+def _validate_entities(
+    functions: list[FunctionDSL],
+    yaml_entities: list,
+    report: ConsistencyReport,
+) -> None:
+    """Check that entities referenced in inline tags have YAML definitions."""
+    # Collect all entity names from inline tags
+    code_entities: set[str] = set()
+    for fn in functions:
+        for rw in fn.reads + fn.writes:
+            entity = _extract_entity_from_rw(rw)
+            if entity:
+                code_entities.add(entity)
+
+    yaml_entity_names = {e.table for e in yaml_entities}
+
+    # Entities in code but no YAML definition
+    for name in code_entities - yaml_entity_names:
+        report.issues.append(ConsistencyIssue(
+            severity="warning",
+            category="entity",
+            message=f"Entity '{name}' referenced in inline tags but has no .bodhi/entities/ YAML definition.",
+            source=name,
+        ))
+
+
+# ============================================================
+# YAML output (scaffold mode)
+# ============================================================
 
 def _flow_to_dict(flow: Flow) -> dict:
     d: dict = {
@@ -397,8 +753,13 @@ def _service_dep_to_dict(dep: ServiceDependency) -> dict:
     return d
 
 
-def derive_and_write(project_root: Path, output_dir: Optional[Path] = None) -> dict:
-    """Derive all Layer 2 files and write them to .bodhi/ directory.
+def scaffold(project_root: Path, output_dir: Optional[Path] = None) -> dict:
+    """Generate scaffold Layer 2 YAML files from inline tags.
+
+    Use this for cold-start: when adopting Bodhi on an existing project
+    that already has code but no .bodhi/ YAML files. The generated files
+    are a starting point — they need manual enrichment (path, auth,
+    resilience, descriptions, etc.).
 
     Returns a summary dict with counts.
     """
@@ -437,7 +798,6 @@ def derive_and_write(project_root: Path, output_dir: Optional[Path] = None) -> d
     if service_deps:
         services_dir = output_dir / "services"
         services_dir.mkdir(parents=True, exist_ok=True)
-        # Write as a single dependencies file
         deps_data = {
             "name": project_root.name,
             "description": f"Service dependencies for {project_root.name}",
@@ -450,3 +810,7 @@ def derive_and_write(project_root: Path, output_dir: Optional[Path] = None) -> d
         summary["services"] = len(service_deps)
 
     return summary
+
+
+# Keep backward compatibility
+derive_and_write = scaffold

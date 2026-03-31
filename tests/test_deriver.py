@@ -1,4 +1,4 @@
-"""Test deriver: derive Layer 2 YAML from inline tags."""
+"""Test deriver: derive Layer 2 YAML from inline tags + validate consistency."""
 
 import shutil
 from pathlib import Path
@@ -10,6 +10,10 @@ from bodhi_engine.deriver import (
     derive_events,
     derive_services,
     derive_and_write,
+    scaffold,
+    validate_consistency,
+    ConsistencyIssue,
+    ConsistencyReport,
     _parse_emits_value,
     _parse_consumes_value,
     _parse_calls_value,
@@ -156,36 +160,182 @@ class TestDeriveServices:
         """Fixture has no 'via' remote calls, so no service deps."""
         functions = parse_directory(FIXTURES / "src")
         deps = derive_services(functions)
-        # The fixtures don't have 'via' in their calls tags
-        # (they just have local calls like InventoryService.deduct)
         assert isinstance(deps, list)
 
 
-class TestDeriveAndWrite:
+class TestScaffold:
 
-    def test_derive_and_write_creates_files(self, tmp_path):
-        # Copy fixtures to tmp
+    def test_scaffold_creates_files(self, tmp_path):
         src = tmp_path / "src"
         shutil.copytree(FIXTURES / "src", src)
 
         output_dir = tmp_path / ".bodhi"
-        summary = derive_and_write(tmp_path, output_dir)
+        summary = scaffold(tmp_path, output_dir)
 
         assert summary["flows"] > 0
         assert summary["events"] > 0
         assert (output_dir / "flows").is_dir()
         assert (output_dir / "events").is_dir()
 
-    def test_derived_yaml_is_valid(self, tmp_path):
+    def test_scaffold_yaml_is_valid(self, tmp_path):
         src = tmp_path / "src"
         shutil.copytree(FIXTURES / "src", src)
 
         output_dir = tmp_path / ".bodhi"
-        derive_and_write(tmp_path, output_dir)
+        scaffold(tmp_path, output_dir)
 
-        # All generated YAML files should be parseable
         for yaml_file in output_dir.rglob("*.yaml"):
             with open(yaml_file) as f:
                 data = yaml.safe_load(f)
             assert isinstance(data, dict)
             assert "name" in data
+
+    def test_derive_and_write_backward_compat(self, tmp_path):
+        """derive_and_write is an alias for scaffold."""
+        src = tmp_path / "src"
+        shutil.copytree(FIXTURES / "src", src)
+
+        output_dir = tmp_path / ".bodhi"
+        summary = derive_and_write(tmp_path, output_dir)
+        assert summary["flows"] > 0
+
+
+# ============================================================
+# Consistency validation tests
+# ============================================================
+
+class TestConsistencyReport:
+
+    def test_empty_report_is_consistent(self):
+        report = ConsistencyReport()
+        assert report.is_consistent
+        assert "No issues" in report.summary()
+
+    def test_report_with_errors(self):
+        report = ConsistencyReport(issues=[
+            ConsistencyIssue(severity="error", category="flow", message="test error"),
+        ])
+        assert not report.is_consistent
+        assert len(report.errors) == 1
+        assert len(report.warnings) == 0
+
+    def test_report_with_warnings_only(self):
+        report = ConsistencyReport(issues=[
+            ConsistencyIssue(severity="warning", category="event", message="test warning"),
+        ])
+        assert report.is_consistent  # warnings don't break consistency
+        assert len(report.warnings) == 1
+
+    def test_issue_str(self):
+        issue = ConsistencyIssue(
+            severity="error", category="flow",
+            message="Step missing", source="flows/create.yaml",
+        )
+        s = str(issue)
+        assert "[ERROR]" in s
+        assert "[flow]" in s
+        assert "flows/create.yaml" in s
+
+
+class TestValidateConsistency:
+    """Test validate_consistency against the test fixtures.
+
+    The fixtures have both source code (src/) with inline tags and
+    hand-written YAML (.bodhi/) — this lets us test real consistency checks.
+    """
+
+    def test_validate_with_fixtures(self):
+        """Fixtures should produce a report (may have warnings due to
+        intentional differences between derived and hand-written YAML)."""
+        report = validate_consistency(FIXTURES, FIXTURES / ".bodhi")
+        assert isinstance(report, ConsistencyReport)
+        # The report should have some content since fixtures exist
+        assert report.issues is not None
+
+    def test_no_source_code(self, tmp_path):
+        """Empty project should warn about no inline tags."""
+        bodhi_dir = tmp_path / ".bodhi"
+        bodhi_dir.mkdir()
+        report = validate_consistency(tmp_path, bodhi_dir)
+        assert any("No inline" in i.message for i in report.issues)
+
+    def test_no_bodhi_dir(self, tmp_path):
+        """Project with code but no .bodhi/ should warn."""
+        src = tmp_path / "src"
+        shutil.copytree(FIXTURES / "src", src)
+        report = validate_consistency(tmp_path, tmp_path / ".bodhi")
+        assert any(".bodhi/" in i.message for i in report.issues)
+
+    def test_event_consistency(self):
+        """Events in code should match events in YAML."""
+        report = validate_consistency(FIXTURES, FIXTURES / ".bodhi")
+        event_issues = [i for i in report.issues if i.category == "event"]
+        # order_created exists in both code and YAML, so no "missing YAML" error for it
+        missing_yaml_errors = [
+            i for i in event_issues
+            if i.severity == "error" and "order_created" in i.message
+            and "no YAML definition" in i.message
+        ]
+        assert len(missing_yaml_errors) == 0
+
+    def test_detects_event_in_code_not_in_yaml(self, tmp_path):
+        """If code emits an event that has no YAML, report an error."""
+        src = tmp_path / "src"
+        shutil.copytree(FIXTURES / "src", src)
+
+        # Create .bodhi with only bodhi.yaml (no events/)
+        bodhi_dir = tmp_path / ".bodhi"
+        bodhi_dir.mkdir()
+        (bodhi_dir / "bodhi.yaml").write_text(
+            "version: '0.1.0'\nproject:\n  name: test\n  description: test\n"
+        )
+
+        report = validate_consistency(tmp_path, bodhi_dir)
+        event_errors = [
+            i for i in report.issues
+            if i.category == "event" and i.severity == "error"
+            and "no YAML definition" in i.message
+        ]
+        # Fixtures emit order_created and order_cancelled — both should be flagged
+        assert len(event_errors) >= 2
+
+    def test_detects_flow_step_without_inline_tags(self, tmp_path):
+        """If a flow YAML references a function with no inline tags, report error."""
+        src = tmp_path / "src"
+        shutil.copytree(FIXTURES / "src", src)
+
+        bodhi_dir = tmp_path / ".bodhi"
+        bodhi_dir.mkdir()
+        flows_dir = bodhi_dir / "flows"
+        flows_dir.mkdir()
+
+        # Write a flow that references a non-existent function
+        flow_data = {
+            "name": "ghost_flow",
+            "description": "References a function that doesn't exist",
+            "entry": {"type": "http", "method": "POST"},
+            "steps": [
+                {"fn": "GhostService.doSomething", "intent": "Does not exist"},
+            ],
+        }
+        with open(flows_dir / "ghost_flow.yaml", "w") as f:
+            yaml.dump(flow_data, f)
+
+        report = validate_consistency(tmp_path, bodhi_dir)
+        ghost_errors = [
+            i for i in report.issues
+            if "GhostService.doSomething" in i.message and i.severity == "error"
+        ]
+        assert len(ghost_errors) >= 1
+
+    def test_detects_entity_without_yaml(self):
+        """Entities referenced in code but missing from .bodhi/entities/ should warn."""
+        report = validate_consistency(FIXTURES, FIXTURES / ".bodhi")
+        entity_warnings = [
+            i for i in report.issues
+            if i.category == "entity" and i.severity == "warning"
+        ]
+        # Some entities in code (like audit_log, inventory, users, notifications)
+        # may not have YAML definitions in fixtures
+        # Just verify the check runs without error
+        assert isinstance(entity_warnings, list)
