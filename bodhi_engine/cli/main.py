@@ -18,21 +18,21 @@ from ..validator.checker import validate, format_report
 from ..deriver import scaffold, validate_consistency
 
 
-def cmd_validate(project_root: Path):
-    issues = validate(project_root)
+def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
+    issues = validate(project_root, exclude_dirs=exclude_dirs)
     print(format_report(issues))
     sys.exit(1 if any(i.severity.value == "error" for i in issues) else 0)
 
 
-def cmd_check(project_root: Path):
+def cmd_check(project_root: Path, exclude_dirs: set[str] | None = None):
     """Check consistency between inline tags and .bodhi/ YAML files."""
-    report = validate_consistency(project_root)
+    report = validate_consistency(project_root, exclude_dirs=exclude_dirs)
     print(report.summary())
     sys.exit(0 if report.is_consistent else 1)
 
 
-def cmd_stats(project_root: Path):
-    functions = parse_directory(project_root)
+def cmd_stats(project_root: Path, exclude_dirs: set[str] | None = None):
+    functions = parse_directory(project_root, exclude_dirs=exclude_dirs)
 
     bodhi_dir = project_root / ".bodhi"
     dsl = load_bodhi_dir(bodhi_dir) if bodhi_dir.is_dir() else None
@@ -56,8 +56,8 @@ def cmd_stats(project_root: Path):
     print(json.dumps(stats, indent=2))
 
 
-def cmd_derive(project_root: Path):
-    summary = scaffold(project_root)
+def cmd_derive(project_root: Path, exclude_dirs: set[str] | None = None):
+    summary = scaffold(project_root, exclude_dirs=exclude_dirs)
     total = summary["flows"] + summary["events"] + summary["services"]
     if total == 0:
         print("No inline tags found to derive from.")
@@ -70,6 +70,10 @@ def main():
     parser = argparse.ArgumentParser(
         prog="bodhi",
         description="Bodhi DSL — validate and inspect your code's semantic annotations.",
+    )
+    parser.add_argument(
+        "--exclude", nargs="+", metavar="DIR",
+        help="Directory names to exclude from scanning (e.g. --exclude frontend admin-ui)",
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -92,15 +96,16 @@ def main():
         sys.exit(0)
 
     project_root = Path(args.path).resolve()
+    exclude_dirs = set(args.exclude) if args.exclude else None
 
     if args.command == "validate":
-        cmd_validate(project_root)
+        cmd_validate(project_root, exclude_dirs)
     elif args.command == "check":
-        cmd_check(project_root)
+        cmd_check(project_root, exclude_dirs)
     elif args.command == "stats":
-        cmd_stats(project_root)
+        cmd_stats(project_root, exclude_dirs)
     elif args.command == "derive":
-        cmd_derive(project_root)
+        cmd_derive(project_root, exclude_dirs)
 
 
 if __name__ == "__main__":

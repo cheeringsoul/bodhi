@@ -388,7 +388,8 @@ def derive_services(functions: list[FunctionDSL]) -> list[ServiceDependency]:
 # Validation: compare derived data against hand-written YAML
 # ============================================================
 
-def validate_consistency(project_root: Path, bodhi_dir: Optional[Path] = None) -> ConsistencyReport:
+def validate_consistency(project_root: Path, bodhi_dir: Optional[Path] = None,
+                         exclude_dirs: set[str] | None = None) -> ConsistencyReport:
     """Compare inline tags against .bodhi/ YAML files and report inconsistencies.
 
     This is the primary use of the deriver in a DSL-first workflow:
@@ -404,7 +405,7 @@ def validate_consistency(project_root: Path, bodhi_dir: Optional[Path] = None) -
     report = ConsistencyReport()
 
     # Parse inline tags from source code
-    functions = parse_directory(project_root)
+    functions = parse_directory(project_root, exclude_dirs=exclude_dirs)
     if not functions:
         report.issues.append(ConsistencyIssue(
             severity="warning",
@@ -753,7 +754,8 @@ def _service_dep_to_dict(dep: ServiceDependency) -> dict:
     return d
 
 
-def scaffold(project_root: Path, output_dir: Optional[Path] = None) -> dict:
+def scaffold(project_root: Path, output_dir: Optional[Path] = None,
+             exclude_dirs: set[str] | None = None) -> dict:
     """Generate scaffold Layer 2 YAML files from inline tags.
 
     Use this for cold-start: when adopting Bodhi on an existing project
@@ -763,7 +765,7 @@ def scaffold(project_root: Path, output_dir: Optional[Path] = None) -> dict:
 
     Returns a summary dict with counts.
     """
-    functions = parse_directory(project_root)
+    functions = parse_directory(project_root, exclude_dirs=exclude_dirs)
     if output_dir is None:
         output_dir = project_root / ".bodhi"
 

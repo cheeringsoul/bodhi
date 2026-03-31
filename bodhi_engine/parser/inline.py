@@ -274,22 +274,31 @@ def parse_file(file_path: Path) -> list[FunctionDSL]:
     return results
 
 
-def parse_directory(directory: Path, extensions: set[str] | None = None) -> list[FunctionDSL]:
-    """Recursively parse all source files in a directory."""
+def parse_directory(directory: Path, extensions: set[str] | None = None,
+                    exclude_dirs: set[str] | None = None) -> list[FunctionDSL]:
+    """Recursively parse all source files in a directory.
+
+    Args:
+        directory: Root directory to scan.
+        extensions: File extensions to include (default: common source files).
+        exclude_dirs: Additional directory names to skip (merged with built-in list).
+    """
     if extensions is None:
         extensions = {".java", ".py", ".go", ".ts", ".js", ".kt"}
 
     results = []
     for file_path in directory.rglob("*"):
-        if file_path.suffix in extensions and not _is_excluded(file_path):
+        if file_path.suffix in extensions and not _is_excluded(file_path, exclude_dirs):
             results.extend(parse_file(file_path))
     return results
 
 
-def _is_excluded(path: Path) -> bool:
+def _is_excluded(path: Path, extra: set[str] | None = None) -> bool:
     """Skip common non-source directories."""
     excluded = {
         "node_modules", ".git", "__pycache__", "venv", ".venv",
         "build", "dist", "target", ".idea", ".vscode",
     }
+    if extra:
+        excluded |= extra
     return any(part in excluded for part in path.parts)

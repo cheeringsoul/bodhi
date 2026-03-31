@@ -52,13 +52,13 @@ def _extract_entity_name(tag_value: str) -> str | None:
     return val.split()[0] if val else None
 
 
-def validate(project_root: Path) -> list[Issue]:
+def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[Issue]:
     """Run all validation checks and return a list of issues."""
     issues: list[Issue] = []
 
     bodhi_dir = project_root / ".bodhi"
     dsl = load_bodhi_dir(bodhi_dir) if bodhi_dir.is_dir() else None
-    functions = parse_directory(project_root)
+    functions = parse_directory(project_root, exclude_dirs=exclude_dirs)
 
     # Build a set of all function qualified names for cross-reference
     fn_names = {fn.qualified_name for fn in functions}
