@@ -3,8 +3,9 @@ Bodhi CLI — validate Bodhi DSL completeness and consistency.
 
 Usage:
     bodhi validate [<path>]    Check DSL completeness and consistency
+    bodhi check [<path>]       Check inline tags vs YAML consistency
     bodhi stats [<path>]       Show coverage statistics
-    bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags
+    bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags (scaffold)
 """
 
 import argparse
@@ -14,13 +15,20 @@ from pathlib import Path
 
 from ..parser import parse_directory, load_bodhi_dir
 from ..validator.checker import validate, format_report
-from ..deriver import derive_and_write
+from ..deriver import scaffold, validate_consistency
 
 
 def cmd_validate(project_root: Path):
     issues = validate(project_root)
     print(format_report(issues))
     sys.exit(1 if any(i.severity.value == "error" for i in issues) else 0)
+
+
+def cmd_check(project_root: Path):
+    """Check consistency between inline tags and .bodhi/ YAML files."""
+    report = validate_consistency(project_root)
+    print(report.summary())
+    sys.exit(0 if report.is_consistent else 1)
 
 
 def cmd_stats(project_root: Path):
@@ -49,7 +57,7 @@ def cmd_stats(project_root: Path):
 
 
 def cmd_derive(project_root: Path):
-    summary = derive_and_write(project_root)
+    summary = scaffold(project_root)
     total = summary["flows"] + summary["events"] + summary["services"]
     if total == 0:
         print("No inline tags found to derive from.")
@@ -68,10 +76,13 @@ def main():
     p_validate = subparsers.add_parser("validate", help="Check DSL completeness and consistency")
     p_validate.add_argument("path", nargs="?", default=".", help="Project root directory")
 
+    p_check = subparsers.add_parser("check", help="Check inline tags vs YAML consistency")
+    p_check.add_argument("path", nargs="?", default=".", help="Project root directory")
+
     p_stats = subparsers.add_parser("stats", help="Show coverage statistics")
     p_stats.add_argument("path", nargs="?", default=".", help="Project root directory")
 
-    p_derive = subparsers.add_parser("derive", help="Derive Layer 2 YAML files from inline tags")
+    p_derive = subparsers.add_parser("derive", help="Scaffold Layer 2 YAML files from inline tags")
     p_derive.add_argument("path", nargs="?", default=".", help="Project root directory")
 
     args = parser.parse_args()
@@ -84,6 +95,8 @@ def main():
 
     if args.command == "validate":
         cmd_validate(project_root)
+    elif args.command == "check":
+        cmd_check(project_root)
     elif args.command == "stats":
         cmd_stats(project_root)
     elif args.command == "derive":
