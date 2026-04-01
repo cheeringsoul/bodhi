@@ -18,6 +18,12 @@ across your entire system.
 verified in CI, and consumed by AI agents for bug triage, impact analysis, cross-service tracing, and autonomous code
 reasoning. Not documentation for humans to read and forget, but structured intelligence for AI to act on.
 
+## Best For
+
+Bodhi is designed for **AI-first projects** — codebases where AI writes the code from scratch. In this workflow, Claude generates code and DSL annotations simultaneously, keeping semantics accurate and complete from day one.
+
+For **existing / legacy projects**, you can use `bodhi-scan` to retrofit annotations, but coverage and accuracy will depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance hierarchies are harder for AI to annotate reliably. Treat `bodhi-scan` results as a starting point that needs human review.
+
 ## Why Bodhi
 
 | Problem                                                      | Bodhi's Answer                                                                         |
