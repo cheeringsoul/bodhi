@@ -207,7 +207,106 @@ inline:
 
 ---
 
-## DSL-Friendly Code Conventions
+## AI-Friendly Code Conventions
+
+The core principle: **code should be statically traceable from source text alone.** If AI cannot determine the execution path, data flow, or call target by reading the source, the code is not AI-friendly. `@bodhi.*` tags are a remediation for unavoidable indirection — not a substitute for writing traceable code in the first place.
+
+### Prefer Functions + Modules Over Classes + Inheritance
+
+Write code as **direct function calls** with **explicit data flow**. Avoid introducing indirection layers unless the problem genuinely requires runtime polymorphism.
+
+**General rules (all languages):**
+
+- **Direct calls over dispatch**: `create_order(req)` is traceable; `service.handle(req)` dispatched through an interface with 3 implementations is not
+- **Data structures over objects with behavior**: use records / dataclasses / structs / plain objects for data; keep behavior in standalone functions
+- **Explicit routing over polymorphism**: when multiple implementations exist, use `if`/`switch`/`match` at the call site — every branch visible in source
+- **Explicit dependencies over injection**: pass dependencies as function parameters or struct fields; avoid container-managed auto-wiring where possible
+- **Explicit side effects over hidden magic**: no AOP, no implicit interceptors, no monkey-patching for business logic
+
+### Language-Specific Rules
+
+**Java:**
+- Use `record` for data, `static` methods for pure logic; avoid JavaBeans and stateful `@Component` utility classes
+- Avoid `@Transactional` (AOP-invisible); prefer explicit `TransactionTemplate.execute()`
+- Avoid Spring Data magic method-name queries; write explicit SQL (MyBatis, JdbcTemplate)
+- Avoid Lombok `@Data`/`@Builder` (generated methods invisible in source); prefer `record`
+- Never use reflection (`Method.invoke`, `BeanUtils.copyProperties`) in business logic
+- Minimize auto-configuration; explicitly configure what you can
+
+**Go:**
+- Functions + struct methods (Go's natural style is already AI-friendly)
+- Avoid `init()` for registering global state — pass dependencies explicitly
+- Avoid `interface{}` / `any` — use concrete types or small interfaces defined at the consumer
+- Do not put business data in `context.Value` — it creates invisible data channels
+- Commit `go:generate` output to the repo so AI can read it
+
+**Python:**
+- Prefer top-level functions + modules over classes; only use classes when you need state
+- Use `dataclass` / `TypedDict` — never pass untyped `dict` as business data
+- Always add type annotations on function signatures
+- Avoid `__getattr__` / metaclass / `importlib.import_module` for business logic
+- Avoid deep decorator stacks that obscure the original function signature
+- Django signals, Celery `@task`, SQLAlchemy lazy loading all break traceability — tag with `@bodhi.emits`/`@bodhi.consumes`/`@bodhi.calls` when using them
+
+**Kotlin:**
+- Use `sealed class` / `sealed interface` for polymorphism — all subtypes are enumerable at compile time
+- Use `data class` for data; top-level functions over `companion object` statics
+- Use `when` expressions for routing (compiler enforces exhaustive matching)
+- Avoid extension functions for core business logic — definitions are scattered and hard to trace
+
+**TypeScript / Node.js:**
+- `export function` + modules over class hierarchies
+- Explicit types (`interface` / `type`) — never `any` in business code
+- Direct `import` — never dynamic `require()` / `import()` with string variables
+- Avoid NestJS-style decorator + DI when simpler frameworks (Fastify, Hono) suffice
+- Never use `Proxy` objects for business logic
+
+**Rust:**
+- `enum` + `match` for dispatch (compiler-enforced exhaustive matching) — prefer over `dyn Trait`
+- Commit `cargo expand` output or document complex proc macros
+- Use `Result<T, E>` — avoid `unwrap()` / `panic!` in business logic
+
+**C#:**
+- Use `record` for data; top-level statements / static methods for stateless logic
+- Minimal API (explicit route registration) over Controller auto-discovery
+- Explicit DI registration over assembly scanning
+- Avoid `dynamic` type; prefer `switch` expression + pattern matching over virtual/override chains
+
+### Refactoring Rules
+
+Refactoring must not break static traceability. The goal is **simpler, more modular code** — not more abstract code.
+
+**Core principle: extract into modules and functions, not into class hierarchies.**
+
+When refactoring, ask: "Can AI still follow every call path by reading the source?" If the answer is no, the refactoring is wrong.
+
+**DO — these preserve or improve traceability:**
+
+- **Extract function**: pull a block of code into a named function in the same module — call site becomes a direct, grepable call
+- **Extract module**: move related functions into a new file/module — import graph stays explicit
+- **Inline indirection**: if a class/interface exists only to "abstract" a single implementation, collapse it into direct function calls
+- **Replace inheritance with composition**: turn a base class + overrides into a struct/dataclass holding function references or explicit delegates
+- **Replace generic with concrete**: if a type parameter `T` is always used as one type, remove the generic — concrete types are easier to trace
+- **Flatten decorator/wrapper stacks**: if 3 decorators wrap a function, consider merging them into one or inlining the logic
+- **Make implicit explicit**: replace framework magic (auto-wiring, auto-discovery, AOP) with direct calls when possible
+
+**DO NOT — these reduce traceability:**
+
+- **Extract interface for a single implementation**: adds an indirection layer with zero benefit — keep the concrete class
+- **Introduce Strategy/Factory/Observer pattern "for flexibility"**: only use patterns when there are already multiple concrete branches in the code today, not "in case we need it later"
+- **Replace `if`/`switch` with polymorphic dispatch**: explicit routing is more traceable than vtable dispatch — keep the branches visible
+- **Add DI container where direct construction works**: `new OrderService(repo, client)` is more traceable than `@Inject OrderService`
+- **Create abstract base class to "share code"**: prefer standalone utility functions that both callers import — no hidden inherited state
+- **Wrap simple calls in "service" classes**: `OrderService.create()` that just calls `order_repo.save()` adds noise — call the repo directly if that's all it does
+
+**Refactoring decision flow:**
+
+1. Is there duplicated logic? → Extract into a **function** (not a base class)
+2. Is a file too large? → Split into **modules** by business domain (not by layer/pattern)
+3. Is a function too long? → Extract **named sub-functions** in the same module
+4. Are there too many parameters? → Group into a **data structure** (record/dataclass)
+5. Is there an interface with one implementation? → **Inline it** — remove the interface
+6. Is there a class with no state? → Convert to **module-level functions**
 
 ### No Method Overloading
 
