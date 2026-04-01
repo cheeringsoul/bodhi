@@ -143,6 +143,53 @@ undefined tables, etc.), making it suitable as a CI gate.
 }
 ```
 
+## Visualization
+
+Generate Mermaid call graphs from your flow definitions:
+
+```bash
+bodhi graph /path/to/your-project                          # All flows to stdout
+bodhi graph /path/to/your-project --flow create_order      # Single flow
+bodhi graph /path/to/your-project -o diagram.svg           # Render to SVG (requires mmdc)
+```
+
+Multiple flows are merged into one diagram with subgraphs. Nodes are color-coded: green for entry points, blue for functions, orange for database tables, purple for events.
+
+Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli): `npm install -g @mermaid-js/mermaid-cli`
+
+## MCP Server
+
+Bodhi can run as a local [MCP](https://modelcontextprotocol.io/) server, letting AI coding assistants query your project's knowledge graph in real time.
+
+```bash
+bodhi serve /path/to/your-project
+```
+
+Configure in Claude Code (`~/.claude/settings.json` or project `.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "bodhi": {
+      "command": "bodhi",
+      "args": ["serve", "/path/to/your-project"]
+    }
+  }
+}
+```
+
+Available tools:
+
+| Tool              | What It Does                                      | Example Question                              |
+|-------------------|---------------------------------------------------|-----------------------------------------------|
+| `query_flow`      | Return a complete request-to-response call chain  | "How does the create order API work?"         |
+| `trace_entity`    | Find all functions that read/write a given entity | "What touches the `orders` table?"            |
+| `find_consumers`  | Find all consumers of a given event               | "What happens when `order_created` fires?"    |
+| `impact_analysis` | Trace the blast radius of a change                | "What breaks if I change `OrderService.create`?" |
+| `query_state`     | Return state machine transitions                  | "What are the valid transitions from PAID?"   |
+| `service_deps`    | Return upstream/downstream service dependencies   | "What does order-service depend on?"          |
+| `list_*`          | List available flows, entities, events, services, state machines | "What flows exist in this project?" |
+
 ## AI-Friendly Code Style
 
 Bodhi doesn't just annotate code — it promotes a coding style that is **statically traceable from source text**. If AI cannot determine the execution path by reading the source, the code is not AI-friendly.
@@ -201,7 +248,9 @@ bodhi/
 ├── bodhi_engine/                  # pip install → bodhi validate in CI
 │   ├── parser/                    # Parses @bodhi.* tags and .bodhi/*.yaml
 │   ├── validator/                 # Checks DSL completeness and consistency
-│   └── cli/                       # bodhi validate / bodhi stats
+│   ├── cli/                       # bodhi validate / stats / graph / serve
+│   ├── knowledge.py               # In-memory knowledge graph for queries
+│   └── mcp_server.py              # MCP server exposing query tools
 ├── tests/                         # 38 tests
 ├── bodhi_dsl_specification.md     # Full DSL specification
 └── pyproject.toml

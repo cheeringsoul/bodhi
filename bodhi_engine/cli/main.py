@@ -6,6 +6,8 @@ Usage:
     bodhi check [<path>]       Check inline tags vs YAML consistency
     bodhi stats [<path>]       Show coverage statistics
     bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags (scaffold)
+    bodhi graph [<path>]       Generate Mermaid diagrams from flows
+    bodhi serve [<path>]       Start MCP server for AI coding assistants
 """
 
 import argparse
@@ -16,6 +18,7 @@ from pathlib import Path
 from ..parser import parse_directory, load_bodhi_dir
 from ..validator.checker import validate, format_report
 from ..deriver import scaffold, validate_consistency
+from .graph import cmd_graph
 
 
 def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
@@ -89,6 +92,14 @@ def main():
     p_derive = subparsers.add_parser("derive", help="Scaffold Layer 2 YAML files from inline tags")
     p_derive.add_argument("path", nargs="?", default=".", help="Project root directory")
 
+    p_graph = subparsers.add_parser("graph", help="Generate Mermaid diagrams from flows")
+    p_graph.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_graph.add_argument("--flow", metavar="NAME", help="Only graph a specific flow")
+    p_graph.add_argument("-o", "--output", metavar="FILE", help="Render to file (svg/png/pdf) via mmdc")
+
+    p_serve = subparsers.add_parser("serve", help="Start MCP server for AI coding assistants")
+    p_serve.add_argument("path", nargs="?", default=".", help="Project root directory")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -106,6 +117,13 @@ def main():
         cmd_stats(project_root, exclude_dirs)
     elif args.command == "derive":
         cmd_derive(project_root, exclude_dirs)
+    elif args.command == "graph":
+        cmd_graph(project_root, flow_name=args.flow, output=args.output)
+    elif args.command == "serve":
+        from ..mcp_server import mcp, init_knowledge
+        init_knowledge(project_root, exclude_dirs=exclude_dirs)
+        print(f"Bodhi MCP server starting for {project_root}", file=sys.stderr)
+        mcp.run()
 
 
 if __name__ == "__main__":
