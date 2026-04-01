@@ -61,7 +61,7 @@ When Claude creates an API, a database model, or a state machine, it also writes
 └── concepts/glossary.yaml  # Business glossary
 ```
 
-Works with **Java, Python, Go, TypeScript, Kotlin**.
+Works with **Java, Python, Go, TypeScript, Kotlin, Rust, C#, C, C++**.
 
 ## Quick Start
 
@@ -136,6 +136,26 @@ undefined tables, etc.), making it suitable as a CI gate.
   "state_machines": 2
 }
 ```
+
+## AI-Friendly Code Style
+
+Bodhi doesn't just annotate code — it promotes a coding style that is **statically traceable from source text**. If AI cannot determine the execution path by reading the source, the code is not AI-friendly.
+
+**Core principles:**
+
+- **Functions + modules over classes + inheritance** — direct calls are grepable; vtable dispatch is not
+- **Explicit routing over polymorphism** — `if`/`switch`/`match` at the call site, every branch visible
+- **Data structures over objects with behavior** — records / dataclasses / structs, not getter/setter mazes
+- **Explicit dependencies over injection** — pass as parameters, not auto-wired by a container
+- **`@bodhi.*` tags are remediation, not default** — write traceable code first; tag only unavoidable indirection
+
+**Refactoring principle: extract into modules and functions, not into class hierarchies.**
+
+- Extract function / module → good (preserves traceability)
+- Extract interface for a single implementation → bad (adds indirection for no benefit)
+- Replace `if`/`switch` with polymorphic dispatch → bad (hides routing)
+
+Per-language rules for Java, Go, Python, Kotlin, TypeScript, Rust, C#, C, and C++ are in [`templates/CLAUDE.md`](templates/CLAUDE.md).
 
 ## Tag Reference
 
