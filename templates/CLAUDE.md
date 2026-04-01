@@ -105,6 +105,7 @@ Add `@bodhi.*` tags in the doc comment of each function/method.
 
 - `@bodhi.auth required|public|required(role=X)`
 - `@bodhi.validate <rule>`
+- `@bodhi.implements <InterfaceName>` — on implementation classes, back-link to the interface
 - `@bodhi.log.success "<pattern>"`
 - `@bodhi.log.error "<pattern>" [severity=level]`
 - `@bodhi.metric <name> [threshold]`
@@ -215,11 +216,74 @@ Do not use method overloading. Bodhi DSL uses `ClassName.methodName` as the uniq
 - Bad: `create(Order)`, `create(BatchOrder)`
 - Good: `createOrder(Order)`, `createBatchOrder(BatchOrder)`
 
-### Prefer Explicit Over Framework Magic
+### Keep Call Chains Traceable
 
-- Avoid relying on implicit framework behaviors invisible in source code
-- When using IoC/DI frameworks, place `@bodhi.*` tags on the **interface** method, not the implementation
-- For Spring Data / MyBatis repositories with no implementation class, tag the interface method directly
+The goal: anyone (human or AI) reading the code can follow the full flow from entry point to every downstream call without guessing which implementation runs.
+
+**Rule: Do not hide business-critical branching behind interface polymorphism.**
+
+If a method dispatches to different implementations based on runtime conditions (strategy pattern, multi-tenant adapters, payment channels, etc.), make the routing explicit in the caller:
+
+❌ Bad — AI sees `payService.pay()` but can't tell which implementation runs:
+
+```java
+// payService is injected as PayService interface — 3 implementations exist
+public OrderResponse create(CreateOrderRequest req) {
+    payService.pay(req.getPayment());
+}
+```
+
+✅ Good — routing logic is visible, each branch is a concrete call:
+
+```java
+/**
+ * @bodhi.calls WechatPayService.pay via http:POST /v3/pay/transactions
+ * @bodhi.calls AlipayPayService.pay via http:POST /gateway.do
+ */
+public OrderResponse create(CreateOrderRequest req) {
+    switch (req.getChannel()) {
+        case WECHAT -> wechatPayService.pay(req.getPayment());
+        case ALIPAY -> alipayPayService.pay(req.getPayment());
+    }
+}
+```
+
+**When interface polymorphism is acceptable:**
+- Repository / DAO interfaces (Spring Data, MyBatis) — only one implementation, framework-generated
+- Pure infrastructure (logging, metrics, caching) — not part of business flow
+- Single implementation behind an interface for testability
+
+For these cases:
+- Place `@bodhi.*` tags on the interface method
+- Add `@bodhi.implements` on the implementation class to create a back-link
+- Name implementation classes as `XxxImpl` or `DefaultXxx` (consistent naming convention)
+
+```java
+// OrderService.java (interface — tags go here)
+/**
+ * @bodhi.intent Create order, deduct inventory, publish event
+ * @bodhi.reads request.body(userId, items, address)
+ * @bodhi.writes orders(id, userId, totalAmount, status=PENDING) via INSERT
+ * @bodhi.calls InventoryService.deduct
+ */
+OrderResponse create(CreateOrderRequest req);
+
+// OrderServiceImpl.java (implementation — back-link only)
+/**
+ * @bodhi.implements OrderService
+ */
+@Service
+public class OrderServiceImpl implements OrderService {
+    @Override
+    public OrderResponse create(CreateOrderRequest req) {
+        // actual logic here, no @bodhi.* tags needed on methods
+    }
+}
+```
+
+This gives bidirectional traceability: interface → Impl via naming convention, Impl → interface via `@bodhi.implements`.
+
+**In short: if there's only one implementation, interface is fine — tag the interface, back-link the Impl. If there are multiple, make the routing explicit.**
 
 ### Make Event Chains Explicit
 

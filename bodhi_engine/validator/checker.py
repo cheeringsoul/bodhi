@@ -236,6 +236,35 @@ def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[I
                         location=f".bodhi/entities/{entity.table}.yaml",
                     ))
 
+    # --- @bodhi.implements checks (independent of .bodhi/ dir) ---
+
+    # Build class-level index: class_name -> list of FunctionDSL
+    class_functions: dict[str, list] = {}
+    for fn in functions:
+        if fn.class_name:
+            class_functions.setdefault(fn.class_name, []).append(fn)
+
+    # Collect all classes that declare @bodhi.implements
+    impl_classes: dict[str, str] = {}  # class_name -> interface_name
+    for fn in functions:
+        if fn.implements and fn.class_name:
+            impl_classes[fn.class_name] = fn.implements
+
+    # Check: @bodhi.implements target interface should have inline tags
+    classes_with_tags = set()
+    for fn in functions:
+        if fn.class_name and fn.intent:
+            classes_with_tags.add(fn.class_name)
+
+    for impl_class, interface_name in impl_classes.items():
+        if interface_name not in classes_with_tags:
+            issues.append(Issue(
+                severity=Severity.WARNING,
+                rule="implements-missing-interface",
+                message=f"Class '{impl_class}' declares @bodhi.implements {interface_name}, but '{interface_name}' has no @bodhi.* inline tags",
+                location=impl_class,
+            ))
+
     return issues
 
 

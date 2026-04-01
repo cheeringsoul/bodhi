@@ -69,6 +69,12 @@ class FunctionDSL:
     def on_fail(self) -> list[str]:
         return self.get_tags("on_fail")
 
+    @property
+    def implements(self) -> Optional[str]:
+        """Return the interface name from @bodhi.implements, or None."""
+        vals = self.get_tags("implements")
+        return vals[0] if vals else None
+
 
 # Pattern to match @bodhi.<tag> <value>
 TAG_PATTERN = re.compile(r"@bodhi\.(\S+)\s+(.*)")
@@ -221,6 +227,7 @@ def parse_file(file_path: Path) -> list[FunctionDSL]:
 
     results = []
     current_class = None
+    class_tags: list[BodhiTag] = []  # Tags from class-level doc comment
     comment_buffer: list[tuple[int, str]] = []
     in_comment = False
 
@@ -232,6 +239,11 @@ def parse_file(file_path: Path) -> list[FunctionDSL]:
             class_match = class_pattern.search(line)
             if class_match:
                 current_class = class_match.group(1)
+                # Check if the preceding comment had class-level @bodhi.* tags
+                if comment_buffer:
+                    class_tags = parse_tags_from_comment(comment_buffer)
+                comment_buffer = []
+                continue
 
         # Track block comments (/** ... */)
         if suffix in (".java", ".kt", ".ts", ".js"):
@@ -259,13 +271,29 @@ def parse_file(file_path: Path) -> list[FunctionDSL]:
             if func_name and comment_buffer:
                 tags = parse_tags_from_comment(comment_buffer)
                 if tags:
+                    # Merge class-level tags (e.g. @bodhi.implements)
+                    merged = list(tags)
+                    if class_tags:
+                        existing = {t.tag for t in merged}
+                        for ct in class_tags:
+                            if ct.tag not in existing:
+                                merged.append(ct)
                     results.append(FunctionDSL(
                         file_path=str(file_path),
                         function_name=func_name,
                         class_name=current_class,
                         line_number=i,
-                        tags=tags,
+                        tags=merged,
                     ))
+            elif func_name and class_tags:
+                # Function has no own doc comment but class has tags
+                results.append(FunctionDSL(
+                    file_path=str(file_path),
+                    function_name=func_name,
+                    class_name=current_class,
+                    line_number=i,
+                    tags=list(class_tags),
+                ))
 
         # Reset comment buffer on non-comment, non-function lines
         if not stripped.startswith("//") and not in_comment:

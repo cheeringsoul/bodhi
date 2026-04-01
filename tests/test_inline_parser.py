@@ -116,12 +116,39 @@ class TestConsumesParser:
         assert "onPaymentCompleted" in names
 
 
+class TestImplementsParser:
+
+    def test_parse_implements_tag(self):
+        functions = parse_file(FIXTURES / "src" / "OrderServiceImpl.java")
+        # Both create and cancel inherit @bodhi.implements from class
+        assert len(functions) == 2
+
+    def test_implements_value(self):
+        functions = parse_file(FIXTURES / "src" / "OrderServiceImpl.java")
+        for fn in functions:
+            assert fn.implements == "OrderService"
+            assert fn.class_name == "OrderServiceImpl"
+
+    def test_implements_no_intent(self):
+        """Impl class only has @bodhi.implements, no @bodhi.intent."""
+        functions = parse_file(FIXTURES / "src" / "OrderServiceImpl.java")
+        for fn in functions:
+            assert fn.intent is None
+
+    def test_no_implements_on_interface(self):
+        """Interface class should not have @bodhi.implements."""
+        functions = parse_file(FIXTURES / "src" / "OrderService.java")
+        for fn in functions:
+            assert fn.implements is None
+
+
 class TestDirectoryParser:
 
     def test_parse_directory(self):
         functions = parse_directory(FIXTURES / "src")
-        # 3 from OrderService.java + 2 from NotificationHandler.java + 2 from Python = 7
-        assert len(functions) == 7
+        # 3 from OrderService.java + 2 from OrderServiceImpl.java
+        # + 2 from NotificationHandler.java + 2 from Python = 9
+        assert len(functions) == 9
 
     def test_skips_non_source_files(self):
         # Should not crash on non-source files in directory

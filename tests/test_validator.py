@@ -79,3 +79,31 @@ class TestValidator:
         severities = {i.severity for i in self.issues}
         assert Severity.ERROR in severities
         assert Severity.WARNING in severities
+
+    def test_implements_valid_link(self):
+        """OrderServiceImpl declares @bodhi.implements OrderService,
+        and OrderService has tags — should NOT warn."""
+        warnings = [i for i in self.issues if i.rule == "implements-missing-interface"]
+        assert not any("OrderServiceImpl" in i.message for i in warnings)
+
+
+class TestImplementsValidation:
+
+    def test_implements_missing_interface(self, tmp_path):
+        """@bodhi.implements pointing to a class with no tags should warn."""
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "FooImpl.java").write_text("""
+package com.example;
+
+public class FooImpl implements Foo {
+    /**
+     * @bodhi.implements Foo
+     */
+    public void doStuff() {}
+}
+""")
+        issues = validate(tmp_path)
+        warnings = [i for i in issues if i.rule == "implements-missing-interface"]
+        assert len(warnings) == 1
+        assert "Foo" in warnings[0].message
