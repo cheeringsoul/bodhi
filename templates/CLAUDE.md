@@ -272,6 +272,23 @@ Write code as **direct function calls** with **explicit data flow**. Avoid intro
 - Explicit DI registration over assembly scanning
 - Avoid `dynamic` type; prefer `switch` expression + pattern matching over virtual/override chains
 
+**C:**
+- Functions + structs (C's natural style is inherently AI-friendly)
+- Avoid function pointers for business-logic dispatch — use explicit `if`/`switch` on a type tag instead
+- Keep macros (`#define`) simple; avoid multi-line macros that hide control flow or generate function definitions
+- Avoid `void *` for business data — use concrete struct types so fields are visible and grepable
+- Header files (`.h`) are your module interface — keep them minimal and treat `#include` as your explicit dependency graph
+
+**C++:**
+- Use `struct` / plain classes with public fields for data; avoid deep class hierarchies
+- Prefer free functions and namespaces over class methods — `namespace order { Response create(Request req); }` is more traceable than `OrderService::create()`
+- Prefer `std::variant` + `std::visit` over virtual dispatch — all types enumerable at compile time, exhaustive matching
+- Avoid template metaprogramming for business logic — heavy templates produce unreadable error messages and invisible code paths; use concrete types when possible
+- Avoid CRTP (Curiously Recurring Template Pattern), multiple inheritance, and mixin-style base classes — they create hidden behavior inheritance
+- Avoid operator overloading for business semantics — `order + item` is not traceable; `order.addItem(item)` is
+- Avoid `dynamic_cast` / RTTI for dispatch — it means your type hierarchy is doing too much; use `std::variant` or explicit tag-based switching
+- Keep macros minimal (same as C); prefer `constexpr` functions and `inline` over `#define`
+
 ### Refactoring Rules
 
 Refactoring must not break static traceability. The goal is **simpler, more modular code** — not more abstract code.
