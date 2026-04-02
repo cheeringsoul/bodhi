@@ -41,6 +41,7 @@ class Flow:
     related_flows: list[str] = field(default_factory=list)
     entities: list[str] = field(default_factory=list)
     events: list[str] = field(default_factory=list)
+    trace_key: Optional[str] = None   # correlation ID field for log-driven debug
 
     @property
     def all_functions(self) -> list[str]:
@@ -268,6 +269,27 @@ class DistributedMeta:
 
 
 @dataclass
+class RuntimeLogSource:
+    name: str
+    type: str              # file, elasticsearch, loki, cloudwatch
+    path: Optional[str] = None
+    format: Optional[str] = None          # json, text, logfmt
+    timestamp_field: Optional[str] = None
+    message_field: Optional[str] = None
+    url: Optional[str] = None
+    index: Optional[str] = None
+    labels: dict = field(default_factory=dict)
+    auth: dict = field(default_factory=dict)
+
+
+@dataclass
+class RuntimeConfig:
+    logs: list[RuntimeLogSource] = field(default_factory=list)
+    time_window: str = "30s"
+    default_trace_field: Optional[str] = None
+
+
+@dataclass
 class ProjectMeta:
     version: str
     name: str
@@ -275,6 +297,7 @@ class ProjectMeta:
     languages: list[str] = field(default_factory=list)
     frameworks: list[str] = field(default_factory=list)
     distributed: Optional[DistributedMeta] = None
+    runtime: Optional[RuntimeConfig] = None
 
 
 # --- Parsers ---
@@ -310,6 +333,7 @@ def parse_flow(data: dict) -> Flow:
         related_flows=data.get("related_flows", []),
         entities=data.get("entities", []),
         events=data.get("events", []),
+        trace_key=data.get("trace_key"),
     )
 
 
@@ -519,6 +543,28 @@ def parse_topology(data: dict) -> Topology:
     )
 
 
+def _parse_runtime_config(data: dict) -> RuntimeConfig:
+    logs = []
+    for src in data.get("logs", []):
+        logs.append(RuntimeLogSource(
+            name=src.get("name", ""),
+            type=src.get("type", "file"),
+            path=src.get("path"),
+            format=src.get("format"),
+            timestamp_field=src.get("timestamp_field"),
+            message_field=src.get("message_field"),
+            url=src.get("url"),
+            index=src.get("index"),
+            labels=src.get("labels", {}),
+            auth=src.get("auth", {}),
+        ))
+    return RuntimeConfig(
+        logs=logs,
+        time_window=data.get("time_window", "30s"),
+        default_trace_field=data.get("default_trace_field"),
+    )
+
+
 def parse_project_meta(data: dict) -> ProjectMeta:
     project = data.get("project", {})
     dist_data = data.get("distributed")
@@ -529,6 +575,8 @@ def parse_project_meta(data: dict) -> ProjectMeta:
             service=dist_data["service"],
             registry=dist_data.get("registry"),
         )
+    runtime_data = data.get("runtime")
+    runtime = _parse_runtime_config(runtime_data) if runtime_data else None
     return ProjectMeta(
         version=data.get("version", "0.1.0"),
         name=project.get("name", ""),
@@ -536,6 +584,7 @@ def parse_project_meta(data: dict) -> ProjectMeta:
         languages=project.get("languages", []),
         frameworks=project.get("frameworks", []),
         distributed=distributed,
+        runtime=runtime,
     )
 
 

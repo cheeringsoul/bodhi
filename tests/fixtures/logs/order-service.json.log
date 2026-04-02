@@ -1,0 +1,4 @@
+{"@timestamp": "2026-04-02T10:30:00", "level": "INFO", "message": "Order 12345 created successfully", "orderId": "12345", "service": "order-service"}
+{"@timestamp": "2026-04-02T10:30:01", "level": "INFO", "message": "Inventory deducted for product P99", "orderId": "12345", "service": "order-service"}
+{"@timestamp": "2026-04-02T10:30:05", "level": "ERROR", "message": "Payment failed for order 12345: timeout", "orderId": "12345", "service": "order-service"}
+{"@timestamp": "2026-04-02T10:30:06", "level": "INFO", "message": "Order 99999 created successfully", "orderId": "99999", "service": "order-service"}

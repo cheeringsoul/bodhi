@@ -5,11 +5,15 @@ Bodhi MCP Server — expose DSL knowledge graph to AI coding assistants.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from .knowledge import BodhiKnowledge
+from .runtime.debug_engine import DebugEngine
+from .runtime.log_adapter import FileLogAdapter, LogAdapter
 
 mcp = FastMCP("bodhi", instructions=(
     "Bodhi DSL knowledge graph. Query flows, entities, events, "
@@ -17,6 +21,7 @@ mcp = FastMCP("bodhi", instructions=(
 ))
 
 _kb: BodhiKnowledge | None = None
+_debug_engine: DebugEngine | None = None
 
 
 def _get_kb() -> BodhiKnowledge:
@@ -25,9 +30,33 @@ def _get_kb() -> BodhiKnowledge:
     return _kb
 
 
+def _get_debug_engine() -> DebugEngine | None:
+    return _debug_engine
+
+
 def init_knowledge(project_root: Path, exclude_dirs: set[str] | None = None):
-    global _kb
+    global _kb, _debug_engine
     _kb = BodhiKnowledge(project_root, exclude_dirs=exclude_dirs)
+
+    # Initialize debug engine if runtime log config exists
+    meta = _kb.dsl.get("meta")
+    if meta and meta.runtime and meta.runtime.logs:
+        adapters: list[LogAdapter] = []
+        for log_src in meta.runtime.logs:
+            if log_src.type == "file" and log_src.path:
+                adapters.append(FileLogAdapter(
+                    paths=[log_src.path],
+                    format=log_src.format or "text",
+                    timestamp_field=log_src.timestamp_field or "@timestamp",
+                    message_field=log_src.message_field or "message",
+                ))
+        if adapters:
+            # Use the first adapter for now; future: composite adapter
+            _debug_engine = DebugEngine(
+                adapter=adapters[0],
+                flows=_kb._flow_by_name,
+                functions=_kb._fn_by_name,
+            )
 
 
 def _json(obj) -> str:
@@ -207,3 +236,93 @@ def list_channels() -> str:
 def list_topologies() -> str:
     """List all available cross-service event topology names in this project."""
     return _json(_get_kb().list_topologies())
+
+
+@mcp.tool()
+def debug_flow(
+    flow: str,
+    trace_value: str,
+    trace_key: str | None = None,
+    time_from: str | None = None,
+    time_to: str | None = None,
+) -> str:
+    """Trace a specific flow execution by correlation ID using log analysis.
+
+    Walks each step in the flow, searches logs for evidence of success/failure,
+    and builds a causal debug report showing where the flow broke and why.
+
+    Requires runtime.logs configuration in bodhi.yaml.
+
+    Args:
+        flow: Flow name (e.g. "create_order").
+        trace_value: Correlation ID value (e.g. "12345" for an order ID).
+        trace_key: Correlation field name. Defaults to the flow's trace_key.
+        time_from: Search window start (ISO 8601). Defaults to 1 hour ago.
+        time_to: Search window end (ISO 8601). Defaults to now.
+    """
+    engine = _get_debug_engine()
+    if not engine:
+        return _json({"error": "Debug engine not available. Configure runtime.logs in bodhi.yaml."})
+
+    tf = datetime.fromisoformat(time_from) if time_from else None
+    tt = datetime.fromisoformat(time_to) if time_to else None
+
+    report = engine.debug_flow(
+        flow_name=flow,
+        trace_value=trace_value,
+        trace_key=trace_key,
+        time_from=tf,
+        time_to=tt,
+    )
+    return _json(report.to_dict())
+
+
+@mcp.tool()
+def search_logs(
+    fn: str | None = None,
+    flow: str | None = None,
+    level: str | None = None,
+    time_from: str | None = None,
+    time_to: str | None = None,
+    correlation_key: str | None = None,
+    correlation_value: str | None = None,
+    limit: int = 50,
+) -> str:
+    """Search logs with knowledge-graph context.
+
+    Unlike raw log search, results are annotated with which function produced
+    the log and which flow step it belongs to.
+
+    Requires runtime.logs configuration in bodhi.yaml.
+
+    Args:
+        fn: Search logs for a specific function (e.g. "PaymentService.hold").
+        flow: Search logs for all steps in a flow (e.g. "create_order").
+        level: Filter by log level (e.g. "ERROR").
+        time_from: Search window start (ISO 8601). Defaults to 1 hour ago.
+        time_to: Search window end (ISO 8601). Defaults to now.
+        correlation_key: Correlation field name (e.g. "orderId").
+        correlation_value: Correlation field value (e.g. "12345").
+        limit: Maximum results (default 50).
+    """
+    engine = _get_debug_engine()
+    if not engine:
+        return _json({"error": "Debug engine not available. Configure runtime.logs in bodhi.yaml."})
+
+    tf = datetime.fromisoformat(time_from) if time_from else None
+    tt = datetime.fromisoformat(time_to) if time_to else None
+
+    correlation = None
+    if correlation_key and correlation_value:
+        correlation = {correlation_key: correlation_value}
+
+    results = engine.search_logs(
+        fn=fn,
+        flow=flow,
+        level=level,
+        time_from=tf,
+        time_to=tt,
+        correlation=correlation,
+        limit=limit,
+    )
+    return _json(results)

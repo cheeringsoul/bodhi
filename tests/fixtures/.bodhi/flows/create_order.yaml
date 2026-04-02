@@ -1,5 +1,6 @@
 name: create_order
 description: Order creation flow
+trace_key: orderId
 
 entry:
   type: http

@@ -13,3 +13,14 @@ distributed:
 inline:
   java: javadoc
   python: docstring
+
+runtime:
+  logs:
+    - name: app-log
+      type: file
+      path: /var/log/order-service/app.log
+      format: json
+      timestamp_field: "@timestamp"
+      message_field: "message"
+  time_window: 30s
+  default_trace_field: requestId

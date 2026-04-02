@@ -75,6 +75,22 @@ class FunctionDSL:
         vals = self.get_tags("implements")
         return vals[0] if vals else None
 
+    @property
+    def trace(self) -> Optional[str]:
+        """Return the correlation ID field from @bodhi.trace, or None."""
+        vals = self.get_tags("trace")
+        return vals[0] if vals else None
+
+    @property
+    def log_success(self) -> list[str]:
+        """Return @bodhi.log.success patterns."""
+        return self.get_tags("log.success")
+
+    @property
+    def log_error(self) -> list[str]:
+        """Return @bodhi.log.error patterns."""
+        return self.get_tags("log.error")
+
 
 # Pattern to match @bodhi.<tag> <value>
 TAG_PATTERN = re.compile(r"@bodhi\.(\S+)\s+(.*)")

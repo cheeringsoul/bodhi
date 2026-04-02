@@ -7,6 +7,7 @@ from .yaml_parser import (
     Channel, ChannelEvent,
     Topology, TopologyChain, TopologyConsumer,
     Concept, ProjectMeta, DistributedMeta,
+    RuntimeConfig, RuntimeLogSource,
     load_bodhi_dir,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "Channel", "ChannelEvent",
     "Topology", "TopologyChain", "TopologyConsumer",
     "Concept", "ProjectMeta", "DistributedMeta",
+    "RuntimeConfig", "RuntimeLogSource",
     "load_bodhi_dir",
 ]
