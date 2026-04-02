@@ -1,0 +1,15 @@
+name: payment-service
+description: Payment processing
+port: 8081
+tech_stack: [java, spring-boot]
+
+apis:
+  - protocol: http
+    method: POST
+    path: /api/payments/hold
+    flow: hold_payment
+
+depends_on:
+  - service: kafka
+    type: mq
+    topics: [order-events, payment-events]

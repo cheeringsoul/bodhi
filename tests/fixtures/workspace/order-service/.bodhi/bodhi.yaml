@@ -1,0 +1,9 @@
+version: "0.1.0"
+project:
+  name: "order-service"
+  description: "Order management service"
+  languages: [java]
+
+distributed:
+  system: "ecommerce"
+  service: "order-service"

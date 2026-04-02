@@ -1,0 +1,9 @@
+version: "0.1.0"
+project:
+  name: "payment-service"
+  description: "Payment processing service"
+  languages: [java]
+
+distributed:
+  system: "ecommerce"
+  service: "payment-service"

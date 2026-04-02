@@ -102,6 +102,18 @@ def main():
     p_serve = subparsers.add_parser("serve", help="Start MCP server for AI coding assistants")
     p_serve.add_argument("path", nargs="?", default=".", help="Project root directory")
 
+    p_serve_all = subparsers.add_parser(
+        "serve-all",
+        help="Start federated MCP server for a workspace with multiple services",
+    )
+    p_serve_all.add_argument("path", nargs="?", default=".", help="Workspace directory containing service repos")
+
+    p_workspace_validate = subparsers.add_parser(
+        "workspace-validate",
+        help="Validate cross-service consistency in a workspace",
+    )
+    p_workspace_validate.add_argument("path", nargs="?", default=".", help="Workspace directory")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -126,6 +138,29 @@ def main():
         init_knowledge(project_root, exclude_dirs=exclude_dirs)
         print(f"Bodhi MCP server starting for {project_root}", file=sys.stderr)
         mcp.run()
+    elif args.command == "serve-all":
+        from bodhi_app.mcp.workspace_server import workspace_mcp, init_workspace
+        ws_result = init_workspace(project_root)
+        if ws_result.has_errors():
+            print("Cross-service validation errors found:", file=sys.stderr)
+            print(ws_result.format_issues(), file=sys.stderr)
+            sys.exit(1)
+        if ws_result.issues:
+            print(ws_result.format_issues(), file=sys.stderr)
+        services = ", ".join(ws_result.service_data.keys())
+        print(f"Bodhi workspace MCP server starting — services: {services}", file=sys.stderr)
+        workspace_mcp.run()
+    elif args.command == "workspace-validate":
+        from bodhi_engine.workspace import load_workspace
+        ws_result = load_workspace(project_root)
+        services = list(ws_result.service_data.keys())
+        print(f"Services found: {', '.join(services)}")
+        print(f"Flows: {len(ws_result.all_flows)}")
+        print(f"Events: {len(ws_result.all_events)}")
+        print(f"Services: {len(ws_result.all_services)}")
+        print()
+        print(ws_result.format_issues())
+        sys.exit(1 if ws_result.has_errors() else 0)
 
 
 if __name__ == "__main__":

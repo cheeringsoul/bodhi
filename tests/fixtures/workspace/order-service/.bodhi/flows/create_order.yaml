@@ -1,0 +1,29 @@
+name: create_order
+description: Order creation flow
+trace_key: orderId
+
+entry:
+  type: http
+  method: POST
+  path: /api/orders
+
+steps:
+  - fn: OrderService.create
+    intent: Create order
+    writes:
+      - orders(id, userId, status=PENDING) via INSERT
+    calls:
+      - PaymentService.hold
+
+  - fn: PaymentService.hold
+    remote: payment-service
+    protocol: http
+    api: POST /api/payments/hold
+    flow_ref: payment-service:hold_payment
+    intent: Hold payment
+
+entities:
+  - orders
+
+events:
+  - order_created

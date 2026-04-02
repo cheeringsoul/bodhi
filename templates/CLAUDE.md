@@ -11,7 +11,7 @@ If the user's message describes any of the following, it is a new feature and tr
 - A new event being published or consumed
 - A new database table or entity
 - A new cross-service integration
-- A new business flow (e.g., "用户下单后扣库存冻结金额发事件")
+- A new business flow (e.g., "after user places an order, deduct inventory, hold payment, emit event")
 
 If the user explicitly uses `/bodhi-design`, follow that command's rules. If the user describes a feature directly without using the command, you MUST still execute the same design-first workflow automatically.
 

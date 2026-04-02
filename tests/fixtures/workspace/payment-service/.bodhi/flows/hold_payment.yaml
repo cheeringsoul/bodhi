@@ -1,0 +1,22 @@
+name: hold_payment
+description: Hold payment for an order
+trace_key: orderId
+
+entry:
+  type: http
+  method: POST
+  path: /api/payments/hold
+
+steps:
+  - fn: PaymentController.hold
+    intent: Receive hold request
+    reads:
+      - request.body(orderId, amount)
+
+  - fn: PaymentService.processHold
+    intent: Process payment hold
+    writes:
+      - transactions(id, orderId, amount, status=HELD) via INSERT
+
+events:
+  - payment_completed

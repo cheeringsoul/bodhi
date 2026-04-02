@@ -1,0 +1,15 @@
+name: order_created
+description: Emitted when a new order is created
+channel: kafka:order-events
+
+schema:
+  - field: orderId
+    type: string
+  - field: userId
+    type: string
+  - field: totalAmount
+    type: decimal
+
+producers:
+  - fn: OrderService.create
+    flow: create_order

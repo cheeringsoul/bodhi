@@ -1,0 +1,15 @@
+name: order_created
+description: Consumed when order is created — trigger payment flow
+channel: kafka:order-events
+
+schema:
+  - field: orderId
+    type: string
+  - field: buyerId
+    type: string
+  - field: totalAmount
+    type: decimal
+
+consumers:
+  - fn: PaymentHandler.onOrderCreated
+    flow: hold_payment

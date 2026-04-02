@@ -1,0 +1,13 @@
+table: orders
+description: Order records
+
+fields:
+  - name: id
+    type: bigint
+    primary_key: true
+  - name: userId
+    type: bigint
+  - name: totalAmount
+    type: decimal
+  - name: status
+    type: int

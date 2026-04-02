@@ -1,0 +1,12 @@
+name: payment_completed
+description: Emitted when payment is completed
+
+schema:
+  - field: orderId
+    type: string
+  - field: transactionId
+    type: string
+
+producers:
+  - fn: PaymentService.processHold
+    flow: hold_payment
