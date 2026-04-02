@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 from bodhi_engine.parser import load_bodhi_dir
-from bodhi_engine.parser.yaml_parser import Flow
+from bodhi_engine.parser.yaml_parser import Flow, Entity
 
 # writes that are not real database tables
 _NON_DB_WRITES = {"response", "request", "log", "cache", "session", "cookie", "header"}
@@ -32,11 +32,15 @@ def _classify_write(raw: str) -> tuple[str, bool]:
     return name, is_db
 
 
-def _build_flow_body(flow: Flow, declared: set[str]) -> list[str]:
+def _build_flow_body(flow: Flow, declared: set[str],
+                     db_tables: set[str], db_edges: list[str]) -> list[str]:
     """Build Mermaid lines for a single flow's nodes and edges.
 
     `declared` is shared across flows so that common nodes (e.g. same DB table
     referenced by multiple flows) are only declared once.
+    DB node declarations are deferred — only table names are collected into
+    `db_tables`, and read/write edges into `db_edges`. The caller groups them
+    by datasource as subgraphs.
     """
     lines: list[str] = []
 
@@ -76,21 +80,17 @@ def _build_flow_body(flow: Flow, declared: set[str]) -> list[str]:
             name = read_raw.split("(")[0].strip()
             if name.lower() in _NON_DB_WRITES or name.startswith("request"):
                 continue
+            db_tables.add(name)
             read_id = f"db_{_sanitize_id(name)}"
-            if read_id not in declared:
-                lines.append(f'    {read_id}[("{name}")]')
-                declared.add(read_id)
-            lines.append(f"    {read_id} -.->|read| {fn_id}")
+            db_edges.append(f"    {read_id} -.->|read| {fn_id}")
 
         for write_raw in step.writes:
             name, is_db = _classify_write(write_raw)
             if not is_db:
                 continue
+            db_tables.add(name)
             write_id = f"db_{_sanitize_id(name)}"
-            if write_id not in declared:
-                lines.append(f'    {write_id}[("{name}")]')
-                declared.add(write_id)
-            lines.append(f"    {fn_id} -->|write| {write_id}")
+            db_edges.append(f"    {fn_id} -->|write| {write_id}")
 
         for event in step.emits:
             event_name = event.split("(")[0].strip()
@@ -111,7 +111,66 @@ def _build_flow_body(flow: Flow, declared: set[str]) -> list[str]:
     return lines, remote_ids
 
 
-def flows_to_mermaid(flows: list[Flow]) -> str:
+def _build_db_subgraphs(db_tables: set[str], entities: list[Entity]) -> list[str]:
+    """Group DB table nodes by datasource into Mermaid subgraphs.
+
+    Tables with the same datasource (or database, as fallback) are grouped
+    into a single subgraph. Tables without entity definitions are ungrouped.
+    """
+    # Build table → datasource mapping from entity definitions
+    table_to_ds: dict[str, str] = {}
+    for e in entities:
+        ds = e.datasource or e.database
+        if ds:
+            table_to_ds[e.table] = ds
+
+    # Group tables by datasource
+    ds_groups: dict[str, list[str]] = {}
+    ungrouped: list[str] = []
+    for table in sorted(db_tables):
+        ds = table_to_ds.get(table)
+        if ds:
+            ds_groups.setdefault(ds, []).append(table)
+        else:
+            ungrouped.append(table)
+
+    lines: list[str] = []
+
+    for ds, tables in ds_groups.items():
+        if len(ds_groups) == 1 and not ungrouped:
+            # Single datasource with all tables — use subgraph
+            ds_id = f"ds_{_sanitize_id(ds)}"
+            lines.append(f'    subgraph {ds_id}["{ds}"]')
+            for table in tables:
+                db_id = f"db_{_sanitize_id(table)}"
+                lines.append(f'        {db_id}[("{table}")]')
+            lines.append("    end")
+        elif len(tables) > 1:
+            # Multiple tables in this datasource — group them
+            ds_id = f"ds_{_sanitize_id(ds)}"
+            lines.append(f'    subgraph {ds_id}["{ds}"]')
+            for table in tables:
+                db_id = f"db_{_sanitize_id(table)}"
+                lines.append(f'        {db_id}[("{table}")]')
+            lines.append("    end")
+        else:
+            # Single table in this datasource — still group to show the label
+            ds_id = f"ds_{_sanitize_id(ds)}"
+            lines.append(f'    subgraph {ds_id}["{ds}"]')
+            for table in tables:
+                db_id = f"db_{_sanitize_id(table)}"
+                lines.append(f'        {db_id}[("{table}")]')
+            lines.append("    end")
+
+    # Ungrouped tables (no entity definition with datasource)
+    for table in ungrouped:
+        db_id = f"db_{_sanitize_id(table)}"
+        lines.append(f'    {db_id}[("{table}")]')
+
+    return lines
+
+
+def flows_to_mermaid(flows: list[Flow], entities: list[Entity] | None = None) -> str:
     """Convert one or more Flows into a single Mermaid graph."""
     lines = ["graph TD"]
     declared: set[str] = set()
@@ -120,6 +179,8 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
     entry_ids: list[str] = []
     fn_ids: list[str] = []
     all_remote_ids: list[str] = []
+    db_tables: set[str] = set()
+    db_edges: list[str] = []
 
     for flow in flows:
         entry_ids.append(f"entry_{_sanitize_id(flow.name)}")
@@ -129,7 +190,7 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
         if use_subgraph:
             lines.append(f'    subgraph {_sanitize_id(flow.name)}["{flow.name}"]')
 
-        body, remote_ids = _build_flow_body(flow, declared)
+        body, remote_ids = _build_flow_body(flow, declared, db_tables, db_edges)
         all_remote_ids.extend(remote_ids)
         if use_subgraph:
             # indent one more level inside subgraph
@@ -139,8 +200,12 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
         if use_subgraph:
             lines.append("    end")
 
-    # -- styles
-    db_nodes = [nid for nid in declared if nid.startswith("db_")]
+    # -- DB nodes grouped by datasource
+    lines.extend(_build_db_subgraphs(db_tables, entities or []))
+    lines.extend(db_edges)
+
+    # -- collect node ids for styling
+    db_node_ids = [f"db_{_sanitize_id(t)}" for t in db_tables]
     evt_nodes = [nid for nid in declared if nid.startswith("evt_")]
 
     lines.append("")
@@ -149,6 +214,7 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
     lines.append("    classDef dbStyle fill:#FF9800,stroke:#E65100,color:#fff,stroke-width:1px")
     lines.append("    classDef evtStyle fill:#AB47BC,stroke:#6A1B9A,color:#fff,stroke-width:1px")
     lines.append("    classDef remoteStyle fill:#EF5350,stroke:#B71C1C,color:#fff,stroke-width:2px,stroke-dasharray:5")
+    lines.append("    classDef dsStyle fill:#FFF3E0,stroke:#E65100,color:#333,stroke-width:2px")
 
     if entry_ids:
         lines.append(f"    class {','.join(entry_ids)} entryStyle")
@@ -157,14 +223,48 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
         local_fn_ids = [f for f in fn_ids if f not in all_remote_ids]
         if local_fn_ids:
             lines.append(f"    class {','.join(local_fn_ids)} fnStyle")
-    if db_nodes:
-        lines.append(f"    class {','.join(db_nodes)} dbStyle")
+    if db_node_ids:
+        lines.append(f"    class {','.join(db_node_ids)} dbStyle")
     if evt_nodes:
         lines.append(f"    class {','.join(evt_nodes)} evtStyle")
     if all_remote_ids:
         lines.append(f"    class {','.join(all_remote_ids)} remoteStyle")
 
     return "\n".join(lines)
+
+
+_HTML_TEMPLATE = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bodhi Flow — {title}</title>
+<style>
+  body {{ background: #1e1e2e; margin: 0; display: flex; justify-content: center; padding: 2rem; }}
+  .mermaid {{ background: #fff; border-radius: 8px; padding: 2rem; }}
+  .mermaid svg {{ width: 100%; height: auto; min-width: 800px; }}
+</style>
+</head>
+<body>
+<pre class="mermaid">
+{mermaid}
+</pre>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({{
+  startOnLoad: true,
+  theme: "default",
+  maxTextSize: 100000,
+  flowchart: {{ useMaxWidth: false }}
+}});</script>
+</body>
+</html>
+"""
+
+
+def _render_html(mermaid_text: str, output_path: Path, title: str = "Bodhi Graph") -> None:
+    """Render Mermaid text to a self-contained HTML file."""
+    html = _HTML_TEMPLATE.format(mermaid=mermaid_text, title=title)
+    output_path.write_text(html)
 
 
 def _render_with_mmdc(mermaid_text: str, output_path: Path) -> bool:
@@ -206,6 +306,8 @@ def cmd_graph(project_root: Path, flow_name: str | None = None,
         print("No flows found in .bodhi/flows/", file=sys.stderr)
         sys.exit(1)
 
+    entities: list[Entity] = dsl["entities"]
+
     if flow_name:
         matched = [f for f in flows if f.name == flow_name]
         if not matched:
@@ -214,14 +316,18 @@ def cmd_graph(project_root: Path, flow_name: str | None = None,
             sys.exit(1)
         flows = matched
 
-    mermaid_text = flows_to_mermaid(flows)
+    mermaid_text = flows_to_mermaid(flows, entities=entities)
 
     if not output:
         print(mermaid_text)
         return
 
     output_path = Path(output)
-    if _render_with_mmdc(mermaid_text, output_path):
+    if output_path.suffix == ".html":
+        title = flow_name or "all flows"
+        _render_html(mermaid_text, output_path, title=title)
+        print(f"Rendered to {output_path}")
+    elif _render_with_mmdc(mermaid_text, output_path):
         print(f"Rendered to {output_path}")
     else:
         # fallback: save .mmd file and tell user how to render

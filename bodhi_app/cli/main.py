@@ -7,6 +7,8 @@ Usage:
     bodhi stats [<path>]       Show coverage statistics
     bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags (scaffold)
     bodhi graph [<path>]       Generate Mermaid diagrams from flows
+    bodhi show flow [<name>]   Visualize a flow's call chain (terminal)
+    bodhi show stats           Coverage dashboard (terminal)
     bodhi serve [<path>]       Start MCP server for AI coding assistants
 """
 
@@ -19,6 +21,7 @@ from bodhi_engine.parser import parse_directory, load_bodhi_dir
 from bodhi_engine.validator.checker import validate, format_report
 from bodhi_engine.deriver import scaffold, validate_consistency
 from bodhi_app.cli.graph import cmd_graph
+from bodhi_app.cli.show import cmd_show_flow, cmd_show_stats
 
 
 def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
@@ -99,6 +102,16 @@ def main():
     p_graph.add_argument("--flow", metavar="NAME", help="Only graph a specific flow")
     p_graph.add_argument("-o", "--output", metavar="FILE", help="Render to file (svg/png/pdf) via mmdc")
 
+    # show subcommand with nested subparsers
+    p_show = subparsers.add_parser("show", help="Terminal visualization of Bodhi DSL data")
+    p_show.add_argument("-p", "--path", default=".", help="Project root directory")
+    show_sub = p_show.add_subparsers(dest="show_command")
+
+    p_show_flow = show_sub.add_parser("flow", help="Visualize a flow's call chain")
+    p_show_flow.add_argument("flow_name", nargs="?", default=None, help="Flow name (omit to list all)")
+
+    show_sub.add_parser("stats", help="Coverage dashboard")
+
     p_serve = subparsers.add_parser("serve", help="Start MCP server for AI coding assistants")
     p_serve.add_argument("path", nargs="?", default=".", help="Project root directory")
 
@@ -123,7 +136,15 @@ def main():
     project_root = Path(args.path).resolve()
     exclude_dirs = set(args.exclude) if args.exclude else None
 
-    if args.command == "validate":
+    if args.command == "show":
+        if args.show_command == "flow":
+            cmd_show_flow(project_root, flow_name=args.flow_name, exclude_dirs=exclude_dirs)
+        elif args.show_command == "stats":
+            cmd_show_stats(project_root, exclude_dirs=exclude_dirs)
+        else:
+            p_show.print_help()
+        sys.exit(0)
+    elif args.command == "validate":
         cmd_validate(project_root, exclude_dirs)
     elif args.command == "check":
         cmd_check(project_root, exclude_dirs)

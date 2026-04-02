@@ -166,53 +166,40 @@ pip install bodhi-engine
 bodhi validate .
 ```
 
-## CI Integration
+## CLI Reference
 
-Add to your GitHub Actions workflow:
+All commands accept `--exclude DIR1 DIR2` to skip scanning certain directories.
 
-```yaml
-- name: Validate Bodhi DSL
-  run: |
-    pip install bodhi-engine
-    bodhi validate .
-```
-
-`bodhi validate` exits with code 1 if there are errors (missing intent on write functions, entity references to
-undefined tables, etc.), making it suitable as a CI gate.
-
-`bodhi stats` outputs coverage as JSON:
-
-```json
-{
-  "functions_with_bodhi_tags": 42,
-  "functions_with_intent": 40,
-  "functions_with_writes": 28,
-  "flows": 8,
-  "entities": 5,
-  "state_machines": 2
-}
-```
-
-## Visualization
-
-Generate Mermaid call graphs from your flow definitions:
+### Validation & Analysis
 
 ```bash
-bodhi graph /path/to/your-project                          # All flows to stdout
-bodhi graph /path/to/your-project --flow create_order      # Single flow
-bodhi graph /path/to/your-project -o diagram.svg           # Render to SVG (requires mmdc)
+bodhi validate [path]              # Check DSL completeness and consistency (CI gate, exit 1 on errors)
+bodhi check [path]                 # Check inline tags vs .bodhi/ YAML consistency
+bodhi stats [path]                 # Output coverage statistics as JSON
+bodhi derive [path]                # Scaffold .bodhi/ YAML from inline tags (cold-start)
 ```
 
-Multiple flows are merged into one diagram with subgraphs. Nodes are color-coded: green for entry points, blue for functions, orange for database tables, purple for events.
-
-Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli): `npm install -g @mermaid-js/mermaid-cli`
-
-## MCP Server
-
-Bodhi can run as a local [MCP](https://modelcontextprotocol.io/) server, letting AI coding assistants query your project's knowledge graph in real time.
+### Visualization
 
 ```bash
-bodhi serve /path/to/your-project
+bodhi show -p <path> flow          # List all available flows
+bodhi show -p <path> flow <name>   # Visualize a flow's call chain (colored terminal output)
+bodhi show -p <path> stats         # Coverage dashboard with progress bars and completeness hints
+bodhi graph [path]                 # Generate Mermaid diagram for all flows (stdout)
+bodhi graph [path] --flow <name>   # Generate Mermaid diagram for a single flow
+bodhi graph [path] -o diagram.html # Render to HTML (zero dependencies, open in browser)
+bodhi graph [path] -o diagram.svg  # Render to SVG/PNG/PDF (requires mmdc)
+```
+
+`bodhi show flow` renders a color-coded call chain in the terminal — each step shows function name, intent, reads/writes, emits, on_fail, and cross-service calls. `bodhi show stats` displays a coverage dashboard with colored progress bars for each tag type and hints about missing annotations.
+
+`bodhi graph` generates Mermaid diagrams with color-coded nodes: green for entry points, blue for functions, orange for database tables, purple for events, red dashed for remote calls. Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli): `npm install -g @mermaid-js/mermaid-cli`
+
+### MCP Server
+
+```bash
+bodhi serve [path]                 # Start MCP server for a single service
+bodhi serve-all [path]             # Start federated MCP server for a multi-service workspace
 ```
 
 Configure in Claude Code (`~/.claude/settings.json` or project `.claude/settings.json`):
@@ -228,7 +215,7 @@ Configure in Claude Code (`~/.claude/settings.json` or project `.claude/settings
 }
 ```
 
-Available tools:
+Available MCP tools:
 
 | Tool              | What It Does                                      | Example Question                              |
 |-------------------|---------------------------------------------------|-----------------------------------------------|
@@ -241,6 +228,23 @@ Available tools:
 | `query_channel`   | Return a bidirectional channel definition          | "What events does the order WebSocket handle?" |
 | `query_topology`  | Return a cross-service event chain                | "How does the order fulfillment event flow work?" |
 | `list_*`          | List available flows, entities, events, services, state machines, channels, topologies | "What flows exist in this project?" |
+
+### Workspace (Multi-Service)
+
+```bash
+bodhi workspace-validate [path]    # Validate cross-service consistency (event schema mismatch, broken flow_ref, etc.)
+```
+
+### CI Integration
+
+```yaml
+- name: Validate Bodhi DSL
+  run: |
+    pip install bodhi-engine
+    bodhi validate .
+```
+
+`bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or coverage tracking.
 
 ## AI-Friendly Code Style
 
