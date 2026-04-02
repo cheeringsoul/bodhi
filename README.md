@@ -166,26 +166,6 @@ pip install bodhi-engine
 bodhi validate .
 ```
 
-## Examples
-
-### Flow Visualization (`bodhi show flow`)
-
-Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling, and cross-service calls.
-
-![bodhi show flow](images/flow.png)
-
-### Coverage Dashboard (`bodhi show stats`)
-
-See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable hints about missing annotations.
-
-![bodhi show stats](images/status.png)
-
-### Flow Graph (`bodhi graph`)
-
-Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables, events, and remote calls. Tables sharing the same datasource are grouped together.
-
-![bodhi graph](images/graph.png)
-
 ## CLI Reference
 
 All commands accept `--exclude DIR1 DIR2` to skip scanning certain directories.
@@ -265,6 +245,26 @@ bodhi workspace-validate [path]    # Validate cross-service consistency (event s
 ```
 
 `bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or coverage tracking.
+
+## Examples
+
+### Flow Visualization (`bodhi show flow`)
+
+Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling, and cross-service calls.
+
+![bodhi show flow](docs/flow.png)
+
+### Coverage Dashboard (`bodhi show stats`)
+
+See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable hints about missing annotations.
+
+![bodhi show stats](docs/status.png)
+
+### Flow Graph (`bodhi graph`)
+
+Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables, events, and remote calls. Tables sharing the same datasource are grouped together.
+
+![bodhi graph](docs/graph.png)
 
 ## AI-Friendly Code Style
 
