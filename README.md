@@ -24,6 +24,50 @@ Bodhi is designed for **AI-first projects** — codebases where AI writes the co
 
 For **existing / legacy projects**, you can use `bodhi-scan` to retrofit annotations, but coverage and accuracy will depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance hierarchies are harder for AI to annotate reliably. Treat `bodhi-scan` results as a starting point that needs human review.
 
+## Best Practices: How to Work with AI + Bodhi
+
+Bodhi's design-first workflow works best when you **tell AI the whole picture first, not one step at a time**.
+
+### Tell AI *what* you want, not *how* to implement it
+
+```
+❌ Bad — feeding implementation details one by one:
+
+  "Create an OrderController with a POST /api/orders endpoint"
+  (AI writes code)
+  "Now add inventory deduction, call inventory-service via gRPC"
+  (AI patches code)
+  "Oh and publish an order_created event to Kafka"
+  (AI patches again, YAML skeleton is incomplete or missing)
+
+✅ Good — describe the business intent upfront:
+
+  "Users place an order: deduct inventory (gRPC to inventory-service),
+   hold payment (HTTP to payment-service), persist the order,
+   and publish order_created to Kafka. Return 400 if inventory
+   is insufficient, circuit-break on payment timeout."
+```
+
+When AI sees the full picture, it can design the complete YAML skeleton first — flows, entities, events, cross-service dependencies, error handling — and then implement every function in one coherent pass. When it only sees one piece at a time, each addition is a patch, and the skeleton is either incomplete or never created.
+
+### Recommended workflow
+
+```
+Step 1 → /bodhi-design <describe the full feature>
+            AI produces YAML skeleton only, no code
+            You review: are the flows, entities, events correct?
+
+Step 2 → "Looks good, proceed to implement"
+            AI writes code + inline tags, guided by the skeleton
+            Hook validates consistency after every edit
+
+Step 3 → Review the code as usual
+```
+
+You don't need to write a formal PRD. A few sentences describing the business intent, key operations, external dependencies, and error scenarios is enough. The AI will ask if anything is ambiguous.
+
+**Even without `/bodhi-design`**, describing the feature in full triggers the same workflow automatically — Claude will produce the skeleton and ask for confirmation before writing code. But the explicit command makes the separation between "design" and "implement" clearer and gives you a natural review checkpoint.
+
 ## Why Bodhi
 
 | Problem                                                      | Bodhi's Answer                                                                         |
@@ -58,12 +102,14 @@ When Claude creates an API, a database model, or a state machine, it also writes
 
 ```
 .bodhi/
-├── bodhi.yaml              # Project metadata
-├── flows/create_order.yaml # Request-to-response call chains
+├── bodhi.yaml              # Project metadata (+ distributed block for microservices)
+├── flows/create_order.yaml # Request-to-response call chains (supports cross-service steps)
 ├── entities/orders.yaml    # Database table semantics
 ├── states/order_lifecycle.yaml  # State machines
 ├── events/order_created.yaml   # Event catalog (producers/consumers)
-├── services/order-service.yaml # Service topology (microservices)
+├── services/order-service.yaml # Service topology — multi-protocol APIs (http, grpc, ws, etc.)
+├── channels/order_ws.yaml  # Bidirectional channels (WebSocket, TCP, etc.)
+├── topology/order_flow.yaml # Cross-service event chains
 └── concepts/glossary.yaml  # Business glossary
 ```
 
@@ -100,14 +146,18 @@ Copy the slash command into your project, then use it in Claude Code:
 ```bash
 mkdir -p /path/to/your-project/.claude/commands
 cp bodhi/templates/commands/bodhi-scan.md /path/to/your-project/.claude/commands/
+cp bodhi/templates/commands/bodhi-design.md /path/to/your-project/.claude/commands/
 ```
 
 ```
+/bodhi-design <feature description>             # Design YAML skeleton before coding (recommended)
 /bodhi-scan init                                # Initialize .bodhi/ directory
 /bodhi-scan src/main/java/com/example/order/    # Add inline tags per directory
 /bodhi-scan flows                               # Generate flow files
 /bodhi-scan concepts                            # Generate glossary
 ```
+
+**`/bodhi-design` is the recommended way to start a new feature.** Describe what you want in natural language, and Claude will produce the complete YAML skeleton (flows, entities, events, channels, topology) for your review before writing any code. Even if you skip `/bodhi-design` and describe the feature directly, Claude will automatically run the design-first workflow — but the explicit command makes the intent clearer.
 
 ### 3. Validate in CI (optional)
 
@@ -188,7 +238,9 @@ Available tools:
 | `impact_analysis` | Trace the blast radius of a change                | "What breaks if I change `OrderService.create`?" |
 | `query_state`     | Return state machine transitions                  | "What are the valid transitions from PAID?"   |
 | `service_deps`    | Return upstream/downstream service dependencies   | "What does order-service depend on?"          |
-| `list_*`          | List available flows, entities, events, services, state machines | "What flows exist in this project?" |
+| `query_channel`   | Return a bidirectional channel definition          | "What events does the order WebSocket handle?" |
+| `query_topology`  | Return a cross-service event chain                | "How does the order fulfillment event flow work?" |
+| `list_*`          | List available flows, entities, events, services, state machines, channels, topologies | "What flows exist in this project?" |
 
 ## AI-Friendly Code Style
 

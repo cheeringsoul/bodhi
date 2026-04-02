@@ -51,10 +51,18 @@ def _build_flow_body(flow: Flow, declared: set[str]) -> list[str]:
         first_fn = _sanitize_id(flow.steps[0].fn)
         lines.append(f"    {entry_id} --> {first_fn}")
 
+    remote_ids: list[str] = []
+
     for step in flow.steps:
         fn_id = _sanitize_id(step.fn)
         if fn_id not in declared:
-            lines.append(f'    {fn_id}["{step.fn}"]')
+            if step.remote:
+                # Remote steps get a different shape (subroutine shape)
+                label = f"{step.fn}\\n[{step.remote}]"
+                lines.append(f'    {fn_id}[["{label}"]]')
+                remote_ids.append(fn_id)
+            else:
+                lines.append(f'    {fn_id}["{step.fn}"]')
             declared.add(fn_id)
 
         for call in step.calls:
@@ -100,7 +108,7 @@ def _build_flow_body(flow: Flow, declared: set[str]) -> list[str]:
                 declared.add(event_id)
             lines.append(f"    {event_id} -.->|consume| {fn_id}")
 
-    return lines
+    return lines, remote_ids
 
 
 def flows_to_mermaid(flows: list[Flow]) -> str:
@@ -111,6 +119,7 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
 
     entry_ids: list[str] = []
     fn_ids: list[str] = []
+    all_remote_ids: list[str] = []
 
     for flow in flows:
         entry_ids.append(f"entry_{_sanitize_id(flow.name)}")
@@ -120,7 +129,8 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
         if use_subgraph:
             lines.append(f'    subgraph {_sanitize_id(flow.name)}["{flow.name}"]')
 
-        body = _build_flow_body(flow, declared)
+        body, remote_ids = _build_flow_body(flow, declared)
+        all_remote_ids.extend(remote_ids)
         if use_subgraph:
             # indent one more level inside subgraph
             body = [f"    {line}" for line in body]
@@ -138,15 +148,21 @@ def flows_to_mermaid(flows: list[Flow]) -> str:
     lines.append("    classDef fnStyle fill:#42A5F5,stroke:#1565C0,color:#fff,stroke-width:1px")
     lines.append("    classDef dbStyle fill:#FF9800,stroke:#E65100,color:#fff,stroke-width:1px")
     lines.append("    classDef evtStyle fill:#AB47BC,stroke:#6A1B9A,color:#fff,stroke-width:1px")
+    lines.append("    classDef remoteStyle fill:#EF5350,stroke:#B71C1C,color:#fff,stroke-width:2px,stroke-dasharray:5")
 
     if entry_ids:
         lines.append(f"    class {','.join(entry_ids)} entryStyle")
     if fn_ids:
-        lines.append(f"    class {','.join(fn_ids)} fnStyle")
+        # Exclude remote ids from fnStyle
+        local_fn_ids = [f for f in fn_ids if f not in all_remote_ids]
+        if local_fn_ids:
+            lines.append(f"    class {','.join(local_fn_ids)} fnStyle")
     if db_nodes:
         lines.append(f"    class {','.join(db_nodes)} dbStyle")
     if evt_nodes:
         lines.append(f"    class {','.join(evt_nodes)} evtStyle")
+    if all_remote_ids:
+        lines.append(f"    class {','.join(all_remote_ids)} remoteStyle")
 
     return "\n".join(lines)
 

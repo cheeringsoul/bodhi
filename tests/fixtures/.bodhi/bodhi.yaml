@@ -5,6 +5,11 @@ project:
   languages: [java, python]
   frameworks: [spring-boot]
 
+distributed:
+  system: "ecommerce-platform"
+  service: "order-service"
+  registry: "git@github.com:org/bodhi-registry.git"
+
 inline:
   java: javadoc
   python: docstring

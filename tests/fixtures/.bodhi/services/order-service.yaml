@@ -4,14 +4,24 @@ port: 8080
 tech_stack: [spring-boot, mysql, kafka]
 
 apis:
-  - method: POST
+  - protocol: http
+    method: POST
     path: /api/orders
     flow: create_order
     description: Create order
-  - method: GET
+  - protocol: http
+    method: GET
     path: /api/orders/{id}
     flow: nonexistent_flow
     description: Get order details
+  - protocol: grpc
+    service: OrderService
+    method: CreateOrder
+    flow: create_order
+    description: Create order via gRPC
+  - protocol: websocket
+    channel: order_status_ws
+    description: Real-time order status push
 
 depends_on:
   - service: payment-service
@@ -23,6 +33,11 @@ depends_on:
       timeout: 3s
       retry: 2
       circuit_breaker: threshold=5, window=60s
+
+  - service: inventory-service
+    protocol: grpc
+    apis:
+      - InventoryService/DeductStock
 
   - service: kafka
     type: mq

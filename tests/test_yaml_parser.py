@@ -126,18 +126,31 @@ class TestLoadBodhiDir:
 
     def test_service_apis(self):
         svc = self.dsl["services"][0]
-        assert len(svc.apis) == 2
-        assert svc.apis[0].method == "POST"
-        assert svc.apis[0].path == "/api/orders"
-        assert svc.apis[0].flow == "create_order"
+        assert len(svc.apis) == 4
+        # HTTP API
+        http_api = svc.apis[0]
+        assert http_api.protocol == "http"
+        assert http_api.method == "POST"
+        assert http_api.path == "/api/orders"
+        assert http_api.flow == "create_order"
+        # gRPC API
+        grpc_api = next(a for a in svc.apis if a.protocol == "grpc")
+        assert grpc_api.service == "OrderService"
+        assert grpc_api.method == "CreateOrder"
+        # WebSocket API
+        ws_api = next(a for a in svc.apis if a.protocol == "websocket")
+        assert ws_api.channel == "order_status_ws"
 
     def test_service_dependencies(self):
         svc = self.dsl["services"][0]
-        assert len(svc.depends_on) == 2
+        assert len(svc.depends_on) == 3
         payment_dep = next(d for d in svc.depends_on if d.service == "payment-service")
         assert payment_dep.protocol == "http"
         assert len(payment_dep.apis) == 2
         assert payment_dep.resilience is not None
+        # gRPC dependency
+        inventory_dep = next(d for d in svc.depends_on if d.service == "inventory-service")
+        assert inventory_dep.protocol == "grpc"
 
     def test_service_mq_dependency(self):
         svc = self.dsl["services"][0]
@@ -150,3 +163,73 @@ class TestLoadBodhiDir:
         concept = self.dsl["concepts"][0]
         assert concept.term == "Closed deal"
         assert "PAID" in concept.related_states
+
+    # --- Distributed features ---
+
+    def test_distributed_meta(self):
+        meta = self.dsl["meta"]
+        assert meta.distributed is not None
+        assert meta.distributed.system == "ecommerce-platform"
+        assert meta.distributed.service == "order-service"
+        assert meta.distributed.registry == "git@github.com:org/bodhi-registry.git"
+
+    def test_entity_datasource(self):
+        orders = self.dsl["entities"][0]
+        assert orders.datasource == "order-db"
+
+    def test_flow_remote_step(self):
+        flow = self.dsl["flows"][0]
+        remote_step = next(s for s in flow.steps if s.remote)
+        assert remote_step.fn == "InventoryService.deduct"
+        assert remote_step.remote == "inventory-service"
+        assert remote_step.protocol == "grpc"
+        assert remote_step.api == "InventoryService/DeductStock"
+        assert remote_step.flow_ref == "inventory-service:deduct_stock"
+
+    def test_flow_local_step_no_remote(self):
+        flow = self.dsl["flows"][0]
+        local_step = next(s for s in flow.steps if s.fn == "OrderRepository.save")
+        assert local_step.remote is None
+        assert local_step.flow_ref is None
+
+    def test_channels(self):
+        assert len(self.dsl["channels"]) == 1
+        ch = self.dsl["channels"][0]
+        assert ch.name == "order_status_ws"
+        assert ch.protocol == "websocket"
+        assert ch.path == "/ws/orders"
+
+    def test_channel_inbound_events(self):
+        ch = self.dsl["channels"][0]
+        assert len(ch.inbound_events) == 2
+        sub = next(e for e in ch.inbound_events if e.name == "subscribe")
+        assert sub.triggers_flow == "subscribe_order_updates"
+        assert len(sub.schema) == 1
+
+    def test_channel_outbound_events(self):
+        ch = self.dsl["channels"][0]
+        assert len(ch.outbound_events) == 1
+        out = ch.outbound_events[0]
+        assert out.name == "order_status_changed"
+        assert len(out.triggered_by) == 1
+        assert out.triggered_by[0]["event"] == "order_status_updated"
+
+    def test_topologies(self):
+        assert len(self.dsl["topologies"]) == 1
+        topo = self.dsl["topologies"][0]
+        assert topo.name == "order_fulfillment"
+        assert len(topo.chains) == 2
+
+    def test_topology_chain(self):
+        topo = self.dsl["topologies"][0]
+        chain = next(c for c in topo.chains if c.event == "order_created")
+        assert chain.channel == "kafka:order-events"
+        assert chain.producer == "order-service"
+        assert len(chain.consumers) == 2
+
+    def test_topology_consumer_emits(self):
+        topo = self.dsl["topologies"][0]
+        chain = next(c for c in topo.chains if c.event == "order_created")
+        payment_consumer = next(c for c in chain.consumers if c.service == "payment-service")
+        assert payment_consumer.emits == "payment_completed"
+        assert payment_consumer.action == "Initiate payment collection"

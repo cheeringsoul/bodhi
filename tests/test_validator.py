@@ -87,6 +87,22 @@ class TestValidator:
         assert not any("OrderServiceImpl" in i.message for i in warnings)
 
 
+    def test_service_api_missing_channel(self):
+        """WebSocket API references channel that exists — should not warn for order_status_ws."""
+        warnings = [i for i in self.issues if i.rule == "service-api-missing-channel"]
+        assert not any("order_status_ws" in i.message for i in warnings)
+
+    def test_topology_missing_event(self):
+        """Topology references payment_completed which is not in .bodhi/events/ — should warn."""
+        warnings = [i for i in self.issues if i.rule == "topology-missing-event"]
+        assert any("payment_completed" in i.message for i in warnings)
+
+    def test_topology_existing_event(self):
+        """Topology references order_created which IS in .bodhi/events/ — should not warn."""
+        warnings = [i for i in self.issues if i.rule == "topology-missing-event"]
+        assert not any(i.message.endswith("'order_created' not defined in .bodhi/events/") for i in warnings)
+
+
 class TestImplementsValidation:
 
     def test_implements_missing_interface(self, tmp_path):

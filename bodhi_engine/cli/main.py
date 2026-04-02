@@ -55,6 +55,8 @@ def cmd_stats(project_root: Path, exclude_dirs: set[str] | None = None):
         stats["entities"] = len(dsl["entities"])
         stats["state_machines"] = len(dsl["states"])
         stats["concepts"] = len(dsl["concepts"])
+        stats["channels"] = len(dsl.get("channels", []))
+        stats["topologies"] = len(dsl.get("topologies", []))
 
     print(json.dumps(stats, indent=2))
 

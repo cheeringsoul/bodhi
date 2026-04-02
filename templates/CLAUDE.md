@@ -1,16 +1,31 @@
 # Bodhi DSL — Code + DSL Co-generation Rules
 
-## CRITICAL: DSL-First Workflow
+## CRITICAL: DSL-First Workflow — ALWAYS Design Before Coding
 
-When implementing a new feature, API endpoint, or event-driven workflow, you MUST design before coding:
+**This is the single most important rule.** When the user asks you to implement a new feature, API endpoint, or event-driven workflow — whether via `/bodhi-design` or a direct request — you MUST produce the YAML skeleton FIRST and get user confirmation BEFORE writing any source code.
 
-1. **Design the flow** — create/update `.bodhi/flows/<name>.yaml` with entry point, steps, entities, events
-2. **Define entities** — create/update `.bodhi/entities/<table>.yaml` for any new tables
-3. **Define events** — create/update `.bodhi/events/<name>.yaml` for any new events
-4. **Implement** — write each method with inline tags + code together (see Co-generation below)
-5. **Validate** — the post-edit hook will verify completeness automatically
+### How to detect "new feature" requests
 
-Do NOT jump straight to writing code. The flow YAML is your contract.
+If the user's message describes any of the following, it is a new feature and triggers the DSL-First workflow:
+- A new API endpoint, RPC method, or WebSocket handler
+- A new event being published or consumed
+- A new database table or entity
+- A new cross-service integration
+- A new business flow (e.g., "用户下单后扣库存冻结金额发事件")
+
+If the user explicitly uses `/bodhi-design`, follow that command's rules. If the user describes a feature directly without using the command, you MUST still execute the same design-first workflow automatically.
+
+### DSL-First steps
+
+1. **Analyze** — identify entry points, data reads/writes, cross-service calls, events, error scenarios, state transitions. Present this analysis to the user for confirmation
+2. **Design the flow** — create/update `.bodhi/flows/<name>.yaml` with entry point, steps, entities, events. For cross-service calls, mark steps with `remote`, `protocol`, `api`, `flow_ref`
+3. **Define entities** — create/update `.bodhi/entities/<table>.yaml` for any new tables
+4. **Define events** — create/update `.bodhi/events/<name>.yaml` for any new events
+5. **Define channels** (if bidirectional protocol) — create/update `.bodhi/channels/<name>.yaml`
+6. **Confirm** — present the YAML skeleton to the user and ask: "YAML skeleton is ready. Should I proceed to implement the code?" Do NOT proceed without confirmation
+7. **Implement** — write each method with inline tags + code together (see Co-generation below)
+8. **Update service manifest** — if you added/changed APIs, events, or dependencies, update `.bodhi/services/<name>.yaml`
+9. **Validate** — the post-edit hook will verify completeness automatically
 
 **When to use DSL-first:** new features, new API endpoints, new event workflows, new service integrations.
 **When to skip (just co-generate):** bug fixes, refactoring without behavior change, adding a field, performance optimization.
@@ -128,9 +143,11 @@ Layer 2 files live in `.bodhi/` and fall into two categories:
 
 These are created/updated when you write the corresponding code:
 
-- `.bodhi/bodhi.yaml` — project metadata (create once on init)
+- `.bodhi/bodhi.yaml` — project metadata, including `distributed` block for microservices (create once on init)
 - `.bodhi/entities/<table>.yaml` — database table schemas (when you add/modify ORM models or DDL)
 - `.bodhi/concepts/glossary.yaml` — business term definitions (when domain terms appear in code)
+- `.bodhi/channels/<name>.yaml` — bidirectional channel definitions for WebSocket/Socket/SSE (when you add a bidirectional endpoint)
+- `.bodhi/topology/<name>.yaml` — cross-service event chain definitions (when events cross service boundaries)
 
 ### Derived from inline tags (automatic via `/bodhi-scan`)
 
@@ -151,6 +168,7 @@ When you create a database table / ORM model:
 table: orders
 description: Core orders table
 database: mongodb          # mysql | postgresql | mongodb | redis
+datasource: order-db       # Optional: datasource identifier, maps to connection/bean name in code
 
 fields:
   - name: id
@@ -186,6 +204,8 @@ relations:
     join: orders.user_id = users.id
 ```
 
+**Multiple datasources:** When a service connects to multiple databases (e.g., MySQL for business data, Redis for cache, ES for search), use `datasource` to identify which connection each entity belongs to. The value should match the connection name in code (e.g., Spring bean name, Go config key). If table names collide across datasources, disambiguate in inline tags with a prefix: `@bodhi.reads mysql:orders(...)` vs `@bodhi.reads es:orders(...)`.
+
 ### Project Metadata — `.bodhi/bodhi.yaml`
 
 Create once on project initialization:
@@ -204,6 +224,298 @@ inline:
   go: line_comment
   typescript: jsdoc
 ```
+
+---
+
+## Distributed / Multi-Service Projects
+
+> Skip this section if your project is a monolith.
+
+### Service Identity — `.bodhi/bodhi.yaml`
+
+Every service repo MUST declare its identity in `bodhi.yaml`:
+
+```yaml
+version: "0.1.0"
+project:
+  name: "order-service"
+  description: "Core order service"
+  languages: [java]
+  frameworks: [spring-boot, mybatis, kafka]
+
+distributed:
+  system: "ecommerce-platform"           # System name — all services in the same system share this
+  registry: "git@github.com:org/bodhi-registry.git"  # Central registry repo
+  service: "order-service"               # This service's name (must match registry entry)
+
+inline:
+  java: javadoc
+```
+
+The `distributed` block tells tooling: this repo is part of a larger system, and cross-service references should resolve against the registry.
+
+### Multi-Protocol API Declaration — `.bodhi/services/<name>.yaml`
+
+Services don't always expose HTTP. Declare ALL protocols this service exposes using the `protocol` field:
+
+```yaml
+name: order-service
+description: Core order service
+tech_stack: [spring-boot, mysql, kafka]
+
+apis:
+  # HTTP / REST
+  - protocol: http
+    method: POST
+    path: /api/orders
+    flow: create_order
+    description: Create order
+
+  # gRPC
+  - protocol: grpc
+    service: OrderService
+    method: CreateOrder
+    flow: create_order
+    description: Create order via gRPC
+
+  # WebSocket — reference a channel definition
+  - protocol: websocket
+    channel: order_status_ws
+    description: Real-time order status push
+
+  # JSON-RPC
+  - protocol: jsonrpc
+    transport: http                       # http | websocket | tcp
+    method: order.create
+    flow: create_order
+
+  # Raw TCP / Socket
+  - protocol: tcp
+    port: 9090
+    codec: protobuf                       # protobuf | msgpack | json | custom
+    commands:
+      - name: CREATE_ORDER
+        flow: create_order
+
+depends_on:
+  - service: payment-service
+    protocol: grpc
+    apis:
+      - PaymentService/HoldPayment
+    resilience:
+      timeout: 3s
+      retry: 2
+      circuit_breaker: threshold=5, window=60s
+
+  - service: kafka
+    type: mq
+    topics:
+      - order-events
+```
+
+**Rules:**
+- `protocol` is required on every API entry — never assume HTTP
+- For gRPC: use `service` + `method` (matching `.proto` definitions)
+- For WebSocket: reference a `channel` definition (see below)
+- For JSON-RPC: specify `transport` to clarify how the RPC is carried
+- For TCP/Socket: specify `port` and `codec`
+- `depends_on[].protocol` must match how you actually call the upstream
+
+### Channels — `.bodhi/channels/<name>.yaml`
+
+For bidirectional protocols (WebSocket, raw Socket, SSE with command channel), define a channel:
+
+```yaml
+name: order_status_ws
+protocol: websocket
+path: /ws/orders
+description: Real-time order status updates
+
+inbound_events:                           # client → server
+  - name: subscribe
+    description: Client subscribes to order status updates
+    schema:
+      - field: orderId
+        type: string
+    triggers_flow: subscribe_order_updates
+
+outbound_events:                          # server → client
+  - name: order_status_changed
+    description: Push order status change to client
+    schema:
+      - field: orderId
+        type: string
+      - field: fromStatus
+        type: string
+      - field: toStatus
+        type: string
+    triggered_by:
+      - event: order_status_updated
+        from: kafka:order-events
+```
+
+**Rules:**
+- One channel per `.yaml` file
+- `inbound_events` = messages the server receives from the client
+- `outbound_events` = messages the server pushes to the client
+- `triggers_flow` links inbound events to internal processing flows
+- `triggered_by` links outbound events to internal events that cause the push
+
+**Inline tags for channel handlers:**
+
+```java
+/**
+ * @bodhi.intent Handle WebSocket subscription for order status
+ * @bodhi.consumes ws:subscribe(orderId) from channel:order_status_ws
+ * @bodhi.reads orders(id, status) WHERE id = orderId
+ */
+public void onSubscribe(WebSocketSession session, SubscribeMessage msg) { ... }
+
+/**
+ * @bodhi.intent Push order status change to subscribed WebSocket clients
+ * @bodhi.consumes order_status_updated(orderId, newStatus) from kafka:order-events
+ * @bodhi.emits ws:order_status_changed(orderId, fromStatus, toStatus) to channel:order_status_ws
+ */
+public void pushStatusChange(OrderStatusUpdatedEvent event) { ... }
+```
+
+Use `ws:<event_name>` prefix and `channel:<channel_name>` destination for WebSocket events to distinguish them from MQ events.
+
+### Cross-Service Flows
+
+When a flow crosses service boundaries, mark the remote step explicitly:
+
+```yaml
+# .bodhi/flows/create_order.yaml
+steps:
+  - fn: OrderController.create
+    intent: Receive request, orchestrate order creation
+    reads:
+      - request.body(userId, items, address)
+    calls:
+      - InventoryService.deduct
+      - PaymentService.hold
+
+  - fn: InventoryService.deduct
+    remote: inventory-service              # ← this step executes in another service
+    protocol: grpc
+    api: InventoryService/DeductStock
+    flow_ref: inventory-service:deduct_stock  # ← pointer to the remote flow
+    intent: Deduct product inventory
+    on_fail:
+      - inventory_insufficient → reject 400
+
+  - fn: PaymentService.hold
+    remote: payment-service
+    protocol: http
+    api: POST /api/payments/hold
+    flow_ref: payment-service:hold_payment
+    intent: Hold payment amount
+    on_fail:
+      - payment_timeout → circuit_breaker(threshold=5, window=60s) → reject 503
+```
+
+**Rules:**
+- `remote: <service-name>` — marks the step as a cross-service call
+- `protocol` + `api` — how this service actually calls the remote
+- `flow_ref: <service>:<flow>` — pointer to the detailed flow in the remote service's `.bodhi/flows/`
+- Local steps have NO `remote` field — absence of `remote` means "runs in this process"
+
+**Corresponding inline tags:**
+
+```java
+/**
+ * @bodhi.intent Deduct inventory for order items
+ * @bodhi.calls InventoryService.deduct via grpc:InventoryService/DeductStock
+ * @bodhi.on_fail inventory_insufficient → reject 400
+ */
+private void deductInventory(List<OrderItem> items) {
+    inventoryClient.deduct(items);  // gRPC call to inventory-service
+}
+```
+
+The `via grpc:InventoryService/DeductStock` in the inline tag is the source from which the flow's `remote` + `protocol` + `api` are derived.
+
+### Event Topology — `.bodhi/topology/<name>.yaml`
+
+Describes cross-service event chains — how events flow across the entire system:
+
+```yaml
+name: order_fulfillment
+description: End-to-end event chain from order creation to delivery
+
+chains:
+  - event: order_created
+    channel: kafka:order-events
+    producer: order-service
+    consumers:
+      - service: payment-service
+        fn: PaymentHandler.onOrderCreated
+        action: Initiate payment collection
+        emits: payment_completed
+
+      - service: notification-service
+        fn: NotificationHandler.onOrderCreated
+        action: Send order confirmation email
+
+  - event: payment_completed
+    channel: kafka:payment-events
+    producer: payment-service
+    consumers:
+      - service: order-service
+        fn: OrderHandler.onPaymentCompleted
+        action: Update order status to PAID
+        emits: order_paid
+```
+
+**Rules:**
+- One topology file per major business flow (order fulfillment, user registration, etc.)
+- Each chain entry describes one event and ALL its consumers across all services
+- `emits` on a consumer shows what downstream event it triggers — this is how chains link together
+- When you add a new `@bodhi.emits` or `@bodhi.consumes` that crosses service boundaries, check if a topology file needs updating
+
+### Registry Sync Protocol
+
+The **bodhi-registry** is a standalone repo that aggregates `.bodhi/` metadata from all services:
+
+```
+bodhi-registry/
+├── bodhi.yaml                    # System-level metadata
+├── services/
+│   ├── order-service.yaml        # Copied from order-service repo
+│   ├── payment-service.yaml
+│   └── inventory-service.yaml
+├── events/
+│   ├── order_created.yaml        # Merged: producers from order-service, consumers from all
+│   └── payment_completed.yaml
+├── topology/
+│   └── order_fulfillment.yaml    # Cross-service event chain
+└── channels/
+    └── order_status_ws.yaml      # Copied from the service that owns it
+```
+
+**When to flag registry sync:**
+
+Add `# REGISTRY_SYNC_NEEDED` as the first line of any `.bodhi/` file when you:
+- Add, remove, or change an API endpoint (any protocol)
+- Add, remove, or change an event (producer or consumer)
+- Add or change a service dependency (`depends_on`)
+- Add or change a channel definition
+- Change the service's protocol or port
+
+**Do NOT flag registry sync for:**
+- Internal flow changes that don't affect the service boundary
+- Entity schema changes (internal to the service)
+- Adding inline tags to existing methods
+
+### Distributed Self-Check: Extra Questions
+
+In addition to the 6 standard questions, ask these for every method in a distributed project:
+
+7. Does this method call a remote service? → `@bodhi.calls` MUST have `via <protocol>` — never omit the protocol for remote calls
+8. Does this method expose an endpoint that other services call? → Ensure it's declared in `.bodhi/services/<name>.yaml` under `apis`
+9. Does this event cross service boundaries? → Check that `.bodhi/topology/*.yaml` reflects the producer/consumer pair
+10. Is this a WebSocket/Socket handler? → Use `ws:<event>` prefix and reference the channel definition
 
 ---
 

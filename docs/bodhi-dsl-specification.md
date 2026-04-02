@@ -494,8 +494,8 @@ Derived files are regenerated on demand (e.g., via `bodhi-scan`). They should no
 
 ```
 .bodhi/
-├── bodhi.yaml              # Project metadata
-├── flows/                  # Request-to-response call chains
+├── bodhi.yaml              # Project metadata (includes distributed block for microservices)
+├── flows/                  # Request-to-response call chains (supports cross-service steps)
 │   ├── create_order.yaml
 │   ├── get_order_detail.yaml
 │   └── cancel_order.yaml
@@ -506,12 +506,16 @@ Derived files are regenerated on demand (e.g., via `bodhi-scan`). They should no
 │   ├── orders.yaml
 │   ├── order_items.yaml
 │   └── inventory.yaml
-├── services/               # Service topology (microservices)
+├── services/               # Service topology — multi-protocol APIs (http, grpc, websocket, etc.)
 │   ├── order-service.yaml
 │   └── payment-service.yaml
 ├── events/                 # Event catalog
 │   ├── order_created.yaml
 │   └── payment_completed.yaml
+├── channels/               # Bidirectional communication channels (WebSocket, TCP, etc.)
+│   └── order_status_ws.yaml
+├── topology/               # Cross-service event chains
+│   └── order_fulfillment.yaml
 ├── concepts/               # Business glossary
 │   └── glossary.yaml
 └── schema.json             # DSL JSON Schema (for validation)
@@ -681,6 +685,7 @@ this data mean?"
 table: orders
 description: Core orders table
 database: mysql
+datasource: order-db              # Optional: datasource identifier, maps to connection name in code
 
 fields:
   - name: id
@@ -752,8 +757,9 @@ consumers:
 
 ### 5.7 Service Topology — `.bodhi/services/*.yaml`
 
-**Purpose**: Defines the microservice topology — what APIs a service exposes, what upstream services it depends on, and
-what resilience strategies are in place. Answers "what services exist and how are they connected?"
+**Purpose**: Defines the microservice topology — what APIs a service exposes (across all protocols), what upstream
+services it depends on, and what resilience strategies are in place. Answers "what services exist and how are they
+connected?"
 
 > Note: Only needed for microservice / distributed architectures. Monoliths can skip this.
 
@@ -764,18 +770,43 @@ port: 8080
 tech_stack: [ spring-boot, mysql, kafka ]
 
 apis:
-  - method: POST
+  # HTTP / REST
+  - protocol: http
+    method: POST
     path: /api/orders
     flow: create_order
     description: Create order
-  - method: GET
+  - protocol: http
+    method: GET
     path: /api/orders/{id}
     flow: get_order_detail
     description: Get order details
-  - method: POST
-    path: /api/orders/{id}/cancel
-    flow: cancel_order
-    description: Cancel order
+
+  # gRPC
+  - protocol: grpc
+    service: OrderService
+    method: CreateOrder
+    flow: create_order
+    description: Create order via gRPC
+
+  # WebSocket — reference a channel definition
+  - protocol: websocket
+    channel: order_status_ws
+    description: Real-time order status push
+
+  # JSON-RPC
+  - protocol: jsonrpc
+    transport: http
+    method: order.create
+    flow: create_order
+
+  # Raw TCP / Socket
+  - protocol: tcp
+    port: 9090
+    codec: protobuf
+    commands:
+      - name: CREATE_ORDER
+        flow: create_order
 
 depends_on:
   - service: payment-service
@@ -792,8 +823,8 @@ depends_on:
   - service: inventory-service
     protocol: grpc
     apis:
-      - DeductStock
-      - RollbackStock
+      - InventoryService/DeductStock
+      - InventoryService/RollbackStock
     resilience:
       timeout: 2s
       retry: 3(backoff=exponential)
@@ -814,8 +845,15 @@ depends_on:
 | `port`                    | No       | Service port                                                |
 | `tech_stack`              | No       | Technology stack list                                       |
 | `apis`                    | No       | APIs this service exposes                                   |
-| `apis[].method`           | Yes      | HTTP method or RPC method                                   |
-| `apis[].path`             | Yes      | Route path                                                  |
+| `apis[].protocol`         | Yes      | Protocol: `http`, `grpc`, `websocket`, `jsonrpc`, `tcp`     |
+| `apis[].method`           | No       | HTTP method, gRPC method, or JSON-RPC method name           |
+| `apis[].path`             | No       | Route path (HTTP, WebSocket)                                |
+| `apis[].service`          | No       | gRPC service name                                           |
+| `apis[].channel`          | No       | Channel reference (WebSocket)                               |
+| `apis[].transport`        | No       | Transport layer for JSON-RPC: `http`, `websocket`, `tcp`    |
+| `apis[].port`             | No       | Port (TCP)                                                  |
+| `apis[].codec`            | No       | Codec: `protobuf`, `msgpack`, `json`, `custom` (TCP)        |
+| `apis[].commands`         | No       | Command list (TCP)                                          |
 | `apis[].flow`             | No       | Associated flow                                             |
 | `depends_on`              | No       | Upstream dependency list                                    |
 | `depends_on[].service`    | Yes      | Dependent service name                                      |
@@ -825,7 +863,177 @@ depends_on:
 | `depends_on[].topics`     | No       | MQ topics used                                              |
 | `depends_on[].resilience` | No       | Resilience strategy (timeout, retry, circuit_breaker)       |
 
-### 5.8 Business Glossary — `.bodhi/concepts/*.yaml`
+### 5.8 Channels — `.bodhi/channels/*.yaml`
+
+**Purpose**: Defines bidirectional communication channels (WebSocket, raw Socket, SSE with command channel). Unlike
+request-response APIs, these carry events in both directions. Answers "what messages can the client send, and what does
+the server push?"
+
+> Note: Only needed for bidirectional protocols. Standard HTTP/gRPC APIs don't need channel definitions.
+
+```yaml
+name: order_status_ws
+protocol: websocket
+path: /ws/orders
+description: Real-time order status updates
+
+inbound_events:                           # client → server
+  - name: subscribe
+    description: Client subscribes to order status updates
+    schema:
+      - field: orderId
+        type: string
+    triggers_flow: subscribe_order_updates
+
+  - name: unsubscribe
+    description: Client unsubscribes
+    schema:
+      - field: orderId
+        type: string
+
+outbound_events:                          # server → client
+  - name: order_status_changed
+    description: Push order status change to client
+    schema:
+      - field: orderId
+        type: string
+      - field: fromStatus
+        type: string
+      - field: toStatus
+        type: string
+    triggered_by:
+      - event: order_status_updated
+        from: kafka:order-events
+```
+
+**Inline tags for channel handlers** use `ws:<event_name>` prefix and `channel:<channel_name>` destination:
+
+```java
+/**
+ * @bodhi.intent Handle WebSocket subscription for order status
+ * @bodhi.consumes ws:subscribe(orderId) from channel:order_status_ws
+ * @bodhi.reads orders(id, status) WHERE id = orderId
+ */
+public void onSubscribe(WebSocketSession session, SubscribeMessage msg) { ... }
+
+/**
+ * @bodhi.intent Push order status change to subscribed WebSocket clients
+ * @bodhi.consumes order_status_updated(orderId, newStatus) from kafka:order-events
+ * @bodhi.emits ws:order_status_changed(orderId, fromStatus, toStatus) to channel:order_status_ws
+ */
+public void pushStatusChange(OrderStatusUpdatedEvent event) { ... }
+```
+
+### 5.9 Cross-Service Flows
+
+When a flow crosses service boundaries, steps that execute in a remote service are marked with `remote`, `protocol`,
+`api`, and `flow_ref`:
+
+```yaml
+name: create_order
+description: Order creation with payment hold and inventory deduction
+
+entry:
+  type: http
+  method: POST
+  path: /api/orders
+
+steps:
+  - fn: OrderController.create
+    intent: Receive request, orchestrate order creation
+    reads:
+      - request.body(userId, items, address)
+    calls:
+      - InventoryService.deduct
+      - PaymentService.hold
+
+  - fn: InventoryService.deduct
+    remote: inventory-service
+    protocol: grpc
+    api: InventoryService/DeductStock
+    flow_ref: inventory-service:deduct_stock
+    intent: Deduct product inventory
+    on_fail:
+      - inventory_insufficient → reject 400
+
+  - fn: PaymentService.hold
+    remote: payment-service
+    protocol: http
+    api: POST /api/payments/hold
+    flow_ref: payment-service:hold_payment
+    intent: Hold payment amount
+    on_fail:
+      - payment_timeout → circuit_breaker(threshold=5, window=60s) → reject 503
+```
+
+| Field      | Required | Description                                                        |
+|------------|----------|--------------------------------------------------------------------|
+| `remote`   | No       | Remote service name. Absence means the step runs locally.          |
+| `protocol` | No       | Protocol for the remote call (`http`, `grpc`, etc.)                |
+| `api`      | No       | Remote API identifier (matches the remote service's `apis` entry)  |
+| `flow_ref` | No       | Pointer to the detailed flow in the remote service: `<service>:<flow>` |
+
+### 5.10 Event Topology — `.bodhi/topology/*.yaml`
+
+**Purpose**: Describes cross-service event chains — how events flow across the entire distributed system. While
+`events/*.yaml` describes a single event's producers and consumers, topology files show **complete event chains** across
+multiple services. Answers "what happens system-wide when this event fires?"
+
+```yaml
+name: order_fulfillment
+description: End-to-end event chain from order creation to delivery
+
+chains:
+  - event: order_created
+    channel: kafka:order-events
+    producer: order-service
+    consumers:
+      - service: payment-service
+        fn: PaymentHandler.onOrderCreated
+        action: Initiate payment collection
+        emits: payment_completed
+      - service: notification-service
+        fn: NotificationHandler.onOrderCreated
+        action: Send order confirmation email
+
+  - event: payment_completed
+    channel: kafka:payment-events
+    producer: payment-service
+    consumers:
+      - service: order-service
+        fn: OrderHandler.onPaymentCompleted
+        action: Update order status to PAID
+        emits: order_paid
+```
+
+### 5.11 Distributed Project Metadata — `bodhi.yaml`
+
+For distributed projects, `bodhi.yaml` includes a `distributed` block declaring the service's identity within the
+larger system:
+
+```yaml
+version: "0.1.0"
+project:
+  name: "order-service"
+  description: "Core order service"
+  languages: [java]
+  frameworks: [spring-boot, mybatis, kafka]
+
+distributed:
+  system: "ecommerce-platform"
+  service: "order-service"
+  registry: "git@github.com:org/bodhi-registry.git"
+```
+
+| Field                  | Required | Description                                           |
+|------------------------|----------|-------------------------------------------------------|
+| `distributed.system`   | Yes      | System name — all services in the same system share this |
+| `distributed.service`  | Yes      | This service's name (must match registry entry)       |
+| `distributed.registry` | No       | Central registry repo URL                             |
+
+### 5.12 Business Glossary — `.bodhi/concepts/*.yaml`
+
+> Section numbering note: sections 5.8–5.11 were added for distributed project support.
 
 **Purpose**: Defines business terms and concepts that appear in code. Answers "what does this business term mean?"
 

@@ -14,6 +14,7 @@ from typing import Any
 from .parser import parse_directory, load_bodhi_dir
 from .parser.yaml_parser import (
     Flow, FlowStep, Entity, Event, Service, StateMachine, State, Concept,
+    Channel, Topology,
 )
 from .parser.inline import FunctionDSL
 
@@ -44,6 +45,7 @@ class BodhiKnowledge:
             load_bodhi_dir(bodhi_dir) if bodhi_dir.is_dir() else {
                 "meta": None, "flows": [], "states": [],
                 "entities": [], "events": [], "services": [], "concepts": [],
+                "channels": [], "topologies": [],
             }
         )
 
@@ -69,6 +71,12 @@ class BodhiKnowledge:
         self._concept_by_term: dict[str, Concept] = {
             c.term: c for c in self.dsl["concepts"]
         }
+        self._channel_by_name: dict[str, Channel] = {
+            c.name: c for c in self.dsl.get("channels", [])
+        }
+        self._topology_by_name: dict[str, Topology] = {
+            t.name: t for t in self.dsl.get("topologies", [])
+        }
 
     # -- list helpers --
 
@@ -87,6 +95,12 @@ class BodhiKnowledge:
     def list_state_machines(self) -> list[str]:
         return list(self._state_by_name.keys())
 
+    def list_channels(self) -> list[str]:
+        return list(self._channel_by_name.keys())
+
+    def list_topologies(self) -> list[str]:
+        return list(self._topology_by_name.keys())
+
     # -- query methods --
 
     def query_flow(self, name: str) -> dict | None:
@@ -103,15 +117,7 @@ class BodhiKnowledge:
                 "auth": flow.entry_auth,
             },
             "steps": [
-                {
-                    "fn": s.fn,
-                    "intent": s.intent,
-                    "reads": s.reads,
-                    "writes": s.writes,
-                    "calls": s.calls,
-                    "emits": s.emits,
-                    "on_fail": s.on_fail,
-                }
+                self._flow_step_to_dict(s)
                 for s in flow.steps
             ],
             "entities": flow.entities,
@@ -291,7 +297,7 @@ class BodhiKnowledge:
             "name": svc.name,
             "description": svc.description,
             "tech_stack": svc.tech_stack,
-            "apis": [{"method": a.method, "path": a.path, "flow": a.flow} for a in svc.apis],
+            "apis": [self._service_api_to_dict(a) for a in svc.apis],
             "depends_on": [
                 {
                     "service": d.service,
@@ -317,13 +323,104 @@ class BodhiKnowledge:
             "related_fields": c.related_fields,
         }
 
+    def query_channel(self, name: str) -> dict | None:
+        ch = self._channel_by_name.get(name)
+        if not ch:
+            return None
+        return {
+            "name": ch.name,
+            "protocol": ch.protocol,
+            "description": ch.description,
+            "path": ch.path,
+            "inbound_events": [
+                {
+                    "name": e.name,
+                    "description": e.description,
+                    "schema": e.schema,
+                    "triggers_flow": e.triggers_flow,
+                }
+                for e in ch.inbound_events
+            ],
+            "outbound_events": [
+                {
+                    "name": e.name,
+                    "description": e.description,
+                    "schema": e.schema,
+                    "triggered_by": e.triggered_by,
+                }
+                for e in ch.outbound_events
+            ],
+        }
+
+    def query_topology(self, name: str) -> dict | None:
+        topo = self._topology_by_name.get(name)
+        if not topo:
+            return None
+        return {
+            "name": topo.name,
+            "description": topo.description,
+            "chains": [
+                {
+                    "event": c.event,
+                    "channel": c.channel,
+                    "producer": c.producer,
+                    "consumers": [
+                        {
+                            "service": con.service,
+                            "fn": con.fn,
+                            "action": con.action,
+                            "emits": con.emits,
+                        }
+                        for con in c.consumers
+                    ],
+                }
+                for c in topo.chains
+            ],
+        }
+
     # -- private helpers --
+
+    def _flow_step_to_dict(self, s: FlowStep) -> dict:
+        d: dict[str, Any] = {
+            "fn": s.fn,
+            "intent": s.intent,
+            "reads": s.reads,
+            "writes": s.writes,
+            "calls": s.calls,
+            "emits": s.emits,
+            "on_fail": s.on_fail,
+        }
+        if s.remote:
+            d["remote"] = s.remote
+        if s.protocol:
+            d["protocol"] = s.protocol
+        if s.api:
+            d["api"] = s.api
+        if s.flow_ref:
+            d["flow_ref"] = s.flow_ref
+        return d
+
+    def _service_api_to_dict(self, a) -> dict:
+        d: dict[str, Any] = {"protocol": a.protocol}
+        if a.method:
+            d["method"] = a.method
+        if a.path:
+            d["path"] = a.path
+        if a.flow:
+            d["flow"] = a.flow
+        if a.service:
+            d["service"] = a.service
+        if a.channel:
+            d["channel"] = a.channel
+        if a.description:
+            d["description"] = a.description
+        return d
 
     def _entity_schema(self, entity: str) -> dict | None:
         e = self._entity_by_table.get(entity)
         if not e:
             return None
-        return {
+        result = {
             "table": e.table,
             "description": e.description,
             "fields": [
@@ -335,3 +432,8 @@ class BodhiKnowledge:
                 for r in e.relations
             ],
         }
+        if e.database:
+            result["database"] = e.database
+        if e.datasource:
+            result["datasource"] = e.datasource
+        return result

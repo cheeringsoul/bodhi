@@ -21,6 +21,11 @@ class FlowStep:
     emits: list[str] = field(default_factory=list)
     consumes: list[str] = field(default_factory=list)
     on_fail: list[str] = field(default_factory=list)
+    # Cross-service fields
+    remote: Optional[str] = None       # remote service name, None = local
+    protocol: Optional[str] = None     # protocol for remote call (http, grpc, etc.)
+    api: Optional[str] = None          # remote API identifier
+    flow_ref: Optional[str] = None     # pointer to remote flow, e.g. "payment-service:hold_payment"
 
 
 @dataclass
@@ -122,6 +127,7 @@ class Entity:
     table: str
     description: str
     database: Optional[str] = None
+    datasource: Optional[str] = None
     fields: list[EntityField] = field(default_factory=list)
     indexes: list[dict] = field(default_factory=list)
     relations: list[EntityRelation] = field(default_factory=list)
@@ -174,10 +180,21 @@ class Event:
 
 @dataclass
 class ServiceApi:
-    method: str
-    path: str
+    protocol: str = "http"             # http, grpc, websocket, jsonrpc, tcp
+    method: Optional[str] = None       # HTTP method or gRPC method name
+    path: Optional[str] = None         # HTTP/WebSocket path
     flow: Optional[str] = None
     description: str = ""
+    # gRPC-specific
+    service: Optional[str] = None      # gRPC service name
+    # WebSocket-specific
+    channel: Optional[str] = None      # reference to channel definition
+    # JSON-RPC-specific
+    transport: Optional[str] = None    # http, websocket, tcp
+    # TCP-specific
+    port: Optional[int] = None
+    codec: Optional[str] = None        # protobuf, msgpack, json, custom
+    commands: list[dict] = field(default_factory=list)  # TCP commands
 
 
 @dataclass
@@ -201,12 +218,63 @@ class Service:
 
 
 @dataclass
+class ChannelEvent:
+    name: str
+    description: str = ""
+    schema: list[dict] = field(default_factory=list)
+    triggers_flow: Optional[str] = None      # for inbound events
+    triggered_by: list[dict] = field(default_factory=list)  # for outbound events
+
+
+@dataclass
+class Channel:
+    name: str
+    protocol: str              # websocket, tcp, sse
+    description: str = ""
+    path: Optional[str] = None
+    port: Optional[int] = None
+    inbound_events: list[ChannelEvent] = field(default_factory=list)
+    outbound_events: list[ChannelEvent] = field(default_factory=list)
+
+
+@dataclass
+class TopologyConsumer:
+    service: str
+    fn: Optional[str] = None
+    action: str = ""
+    emits: Optional[str] = None  # downstream event this consumer triggers
+
+
+@dataclass
+class TopologyChain:
+    event: str
+    channel: Optional[str] = None
+    producer: Optional[str] = None
+    consumers: list[TopologyConsumer] = field(default_factory=list)
+
+
+@dataclass
+class Topology:
+    name: str
+    description: str = ""
+    chains: list[TopologyChain] = field(default_factory=list)
+
+
+@dataclass
+class DistributedMeta:
+    system: str                     # system name shared by all services
+    service: str                    # this service's name
+    registry: Optional[str] = None  # registry repo URL
+
+
+@dataclass
 class ProjectMeta:
     version: str
     name: str
     description: str
     languages: list[str] = field(default_factory=list)
     frameworks: list[str] = field(default_factory=list)
+    distributed: Optional[DistributedMeta] = None
 
 
 # --- Parsers ---
@@ -224,6 +292,10 @@ def parse_flow(data: dict) -> Flow:
             emits=s.get("emits", []),
             consumes=s.get("consumes", []),
             on_fail=s.get("on_fail", []),
+            remote=s.get("remote"),
+            protocol=s.get("protocol"),
+            api=s.get("api"),
+            flow_ref=s.get("flow_ref"),
         ))
 
     return Flow(
@@ -299,6 +371,7 @@ def parse_entity(data: dict) -> Entity:
         table=data["table"],
         description=data.get("description", ""),
         database=data.get("database"),
+        datasource=data.get("datasource"),
         fields=fields,
         indexes=data.get("indexes", []),
         relations=relations,
@@ -357,10 +430,17 @@ def parse_service(data: dict) -> Service:
     apis = []
     for a in data.get("apis", []):
         apis.append(ServiceApi(
-            method=a.get("method", ""),
-            path=a.get("path", ""),
+            protocol=a.get("protocol", "http"),
+            method=a.get("method"),
+            path=a.get("path"),
             flow=a.get("flow"),
             description=a.get("description", ""),
+            service=a.get("service"),
+            channel=a.get("channel"),
+            transport=a.get("transport"),
+            port=a.get("port"),
+            codec=a.get("codec"),
+            commands=a.get("commands", []),
         ))
 
     depends_on = []
@@ -384,14 +464,78 @@ def parse_service(data: dict) -> Service:
     )
 
 
+def parse_channel(data: dict) -> Channel:
+    inbound = []
+    for e in data.get("inbound_events", []):
+        inbound.append(ChannelEvent(
+            name=e["name"],
+            description=e.get("description", ""),
+            schema=e.get("schema", []),
+            triggers_flow=e.get("triggers_flow"),
+        ))
+
+    outbound = []
+    for e in data.get("outbound_events", []):
+        outbound.append(ChannelEvent(
+            name=e["name"],
+            description=e.get("description", ""),
+            schema=e.get("schema", []),
+            triggered_by=e.get("triggered_by", []),
+        ))
+
+    return Channel(
+        name=data["name"],
+        protocol=data.get("protocol", "websocket"),
+        description=data.get("description", ""),
+        path=data.get("path"),
+        port=data.get("port"),
+        inbound_events=inbound,
+        outbound_events=outbound,
+    )
+
+
+def parse_topology(data: dict) -> Topology:
+    chains = []
+    for c in data.get("chains", []):
+        consumers = []
+        for con in c.get("consumers", []):
+            consumers.append(TopologyConsumer(
+                service=con["service"],
+                fn=con.get("fn"),
+                action=con.get("action", ""),
+                emits=con.get("emits"),
+            ))
+        chains.append(TopologyChain(
+            event=c["event"],
+            channel=c.get("channel"),
+            producer=c.get("producer"),
+            consumers=consumers,
+        ))
+
+    return Topology(
+        name=data["name"],
+        description=data.get("description", ""),
+        chains=chains,
+    )
+
+
 def parse_project_meta(data: dict) -> ProjectMeta:
     project = data.get("project", {})
+    dist_data = data.get("distributed")
+    distributed = None
+    if dist_data:
+        distributed = DistributedMeta(
+            system=dist_data["system"],
+            service=dist_data["service"],
+            registry=dist_data.get("registry"),
+        )
     return ProjectMeta(
         version=data.get("version", "0.1.0"),
         name=project.get("name", ""),
         description=project.get("description", ""),
         languages=project.get("languages", []),
         frameworks=project.get("frameworks", []),
+        distributed=distributed,
     )
 
 
@@ -410,6 +554,8 @@ def load_bodhi_dir(bodhi_dir: Path) -> dict[str, Any]:
         "events": [],
         "services": [],
         "concepts": [],
+        "channels": [],
+        "topologies": [],
     }
 
     # bodhi.yaml
@@ -460,5 +606,19 @@ def load_bodhi_dir(bodhi_dir: Path) -> dict[str, Any]:
             with open(f) as fh:
                 data = yaml.safe_load(fh)
                 result["concepts"].extend(parse_concepts(data))
+
+    # channels/
+    channels_dir = bodhi_dir / "channels"
+    if channels_dir.is_dir():
+        for f in sorted(channels_dir.glob("*.yaml")):
+            with open(f) as fh:
+                result["channels"].append(parse_channel(yaml.safe_load(fh)))
+
+    # topology/
+    topology_dir = bodhi_dir / "topology"
+    if topology_dir.is_dir():
+        for f in sorted(topology_dir.glob("*.yaml")):
+            with open(f) as fh:
+                result["topologies"].append(parse_topology(yaml.safe_load(fh)))
 
     return result

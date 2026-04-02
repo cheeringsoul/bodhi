@@ -201,15 +201,53 @@ def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[I
                     ))
 
         # Service checks: remote calls should have on_fail, API flows should exist
+        channel_names = {c.name for c in dsl.get("channels", [])}
         for service in dsl.get("services", []):
             flow_names = {f.name for f in dsl["flows"]}
             for api in service.apis:
                 if api.flow and api.flow not in flow_names:
+                    api_label = f"{api.protocol}:{api.method or ''} {api.path or api.service or ''}".strip()
                     issues.append(Issue(
                         severity=Severity.WARNING,
                         rule="service-api-missing-flow",
-                        message=f"Service '{service.name}' API '{api.method} {api.path}' references flow '{api.flow}' which does not exist",
+                        message=f"Service '{service.name}' API '{api_label}' references flow '{api.flow}' which does not exist",
                         location=f".bodhi/services/{service.name}.yaml",
+                    ))
+                # WebSocket APIs should reference an existing channel
+                if api.protocol == "websocket" and api.channel and api.channel not in channel_names:
+                    issues.append(Issue(
+                        severity=Severity.WARNING,
+                        rule="service-api-missing-channel",
+                        message=f"Service '{service.name}' WebSocket API references channel '{api.channel}' which does not exist",
+                        location=f".bodhi/services/{service.name}.yaml",
+                    ))
+
+        # Flow cross-service checks: remote steps should reference known services
+        service_names = {s.name for s in dsl.get("services", [])}
+        # Also include services from depends_on
+        for svc in dsl.get("services", []):
+            for dep in svc.depends_on:
+                service_names.add(dep.service)
+        for flow in dsl["flows"]:
+            for step in flow.steps:
+                if step.remote and service_names and step.remote not in service_names:
+                    issues.append(Issue(
+                        severity=Severity.WARNING,
+                        rule="flow-remote-unknown-service",
+                        message=f"Flow '{flow.name}' step '{step.fn}' references remote service '{step.remote}' not found in any service definition",
+                        location=f".bodhi/flows/{flow.name}.yaml",
+                    ))
+
+        # Topology checks: events in topology should exist in events/
+        event_names = {e.name for e in dsl.get("events", [])}
+        for topo in dsl.get("topologies", []):
+            for chain in topo.chains:
+                if event_names and chain.event not in event_names:
+                    issues.append(Issue(
+                        severity=Severity.WARNING,
+                        rule="topology-missing-event",
+                        message=f"Topology '{topo.name}' references event '{chain.event}' not defined in .bodhi/events/",
+                        location=f".bodhi/topology/{topo.name}.yaml",
                     ))
 
         # Remote calls (via) should have on_fail

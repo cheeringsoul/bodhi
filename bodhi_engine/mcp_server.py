@@ -159,3 +159,51 @@ def list_services() -> str:
 def list_state_machines() -> str:
     """List all available state machine names in this project."""
     return _json(_get_kb().list_state_machines())
+
+
+@mcp.tool()
+def query_channel(name: str) -> str:
+    """Return the definition of a bidirectional communication channel (WebSocket, TCP, etc.).
+
+    Shows inbound events (client→server), outbound events (server→client),
+    schemas, and linked flows/events.
+
+    Args:
+        name: Channel name (e.g. "order_status_ws"). Use list_channels to see available names.
+    """
+    kb = _get_kb()
+    result = kb.query_channel(name)
+    if not result:
+        available = kb.list_channels()
+        return f"Channel '{name}' not found. Available: {', '.join(available)}"
+    return _json(result)
+
+
+@mcp.tool()
+def query_topology(name: str) -> str:
+    """Return a cross-service event topology — how events flow across the entire system.
+
+    Shows each event in the chain, its producer service, consumer services,
+    and what downstream events each consumer triggers.
+
+    Args:
+        name: Topology name (e.g. "order_fulfillment"). Use list_topologies to see available names.
+    """
+    kb = _get_kb()
+    result = kb.query_topology(name)
+    if not result:
+        available = kb.list_topologies()
+        return f"Topology '{name}' not found. Available: {', '.join(available)}"
+    return _json(result)
+
+
+@mcp.tool()
+def list_channels() -> str:
+    """List all available channel names (WebSocket, TCP, etc.) in this project."""
+    return _json(_get_kb().list_channels())
+
+
+@mcp.tool()
+def list_topologies() -> str:
+    """List all available cross-service event topology names in this project."""
+    return _json(_get_kb().list_topologies())

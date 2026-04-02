@@ -1,0 +1,32 @@
+name: order_status_ws
+protocol: websocket
+path: /ws/orders
+description: Real-time order status updates
+
+inbound_events:
+  - name: subscribe
+    description: Client subscribes to order status updates
+    schema:
+      - field: orderId
+        type: string
+    triggers_flow: subscribe_order_updates
+
+  - name: unsubscribe
+    description: Client unsubscribes
+    schema:
+      - field: orderId
+        type: string
+
+outbound_events:
+  - name: order_status_changed
+    description: Push order status change to client
+    schema:
+      - field: orderId
+        type: string
+      - field: fromStatus
+        type: string
+      - field: toStatus
+        type: string
+    triggered_by:
+      - event: order_status_updated
+        from: kafka:order-events

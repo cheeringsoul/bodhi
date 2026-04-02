@@ -4,7 +4,9 @@ from .yaml_parser import (
     Entity, EntityField, EntityRelation,
     Event, EventSchemaField, EventEndpoint,
     Service, ServiceApi, ServiceDependency,
-    Concept, ProjectMeta,
+    Channel, ChannelEvent,
+    Topology, TopologyChain, TopologyConsumer,
+    Concept, ProjectMeta, DistributedMeta,
     load_bodhi_dir,
 )
 
@@ -14,6 +16,8 @@ __all__ = [
     "Entity", "EntityField", "EntityRelation",
     "Event", "EventSchemaField", "EventEndpoint",
     "Service", "ServiceApi", "ServiceDependency",
-    "Concept", "ProjectMeta",
+    "Channel", "ChannelEvent",
+    "Topology", "TopologyChain", "TopologyConsumer",
+    "Concept", "ProjectMeta", "DistributedMeta",
     "load_bodhi_dir",
 ]

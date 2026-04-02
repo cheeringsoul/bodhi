@@ -1,6 +1,7 @@
 table: orders
 description: Core orders table
 database: mysql
+datasource: order-db
 
 fields:
   - name: id

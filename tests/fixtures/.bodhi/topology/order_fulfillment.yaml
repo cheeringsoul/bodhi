@@ -1,0 +1,24 @@
+name: order_fulfillment
+description: End-to-end event chain from order creation to notification
+
+chains:
+  - event: order_created
+    channel: kafka:order-events
+    producer: order-service
+    consumers:
+      - service: payment-service
+        fn: PaymentHandler.onOrderCreated
+        action: Initiate payment collection
+        emits: payment_completed
+      - service: notification-service
+        fn: NotificationHandler.onOrderCreated
+        action: Send order confirmation email
+
+  - event: payment_completed
+    channel: kafka:payment-events
+    producer: payment-service
+    consumers:
+      - service: order-service
+        fn: OrderHandler.onPaymentCompleted
+        action: Update order status to PAID
+        emits: order_paid

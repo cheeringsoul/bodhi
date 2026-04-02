@@ -19,6 +19,10 @@ steps:
       - validation_failed → reject 400
 
   - fn: InventoryService.deduct
+    remote: inventory-service
+    protocol: grpc
+    api: InventoryService/DeductStock
+    flow_ref: inventory-service:deduct_stock
     intent: Deduct inventory
     reads:
       - inventory(productId, stock)
