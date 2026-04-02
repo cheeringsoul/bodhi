@@ -246,26 +246,6 @@ bodhi workspace-validate [path]    # Validate cross-service consistency (event s
 
 `bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or coverage tracking.
 
-## Examples
-
-### Flow Visualization (`bodhi show flow`)
-
-Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling, and cross-service calls.
-
-![bodhi show flow](images/flow.png)
-
-### Coverage Dashboard (`bodhi show stats`)
-
-See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable hints about missing annotations.
-
-![bodhi show stats](images/status.png)
-
-### Flow Graph (`bodhi graph`)
-
-Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables, events, and remote calls. Tables sharing the same datasource are grouped together.
-
-![bodhi graph](images/graph.png)
-
 ## AI-Friendly Code Style
 
 Bodhi doesn't just annotate code — it promotes a coding style that is **statically traceable from source text**. If AI cannot determine the execution path by reading the source, the code is not AI-friendly.
@@ -320,17 +300,41 @@ bodhi/
 ├── templates/
 │   ├── CLAUDE.md                  # Put in your project → Claude writes DSL with code
 │   └── commands/
-│       └── bodhi-scan.md          # /bodhi-scan command for existing code
-├── bodhi_engine/                  # pip install → bodhi validate in CI
+│       ├── bodhi-scan.md          # /bodhi-scan command for existing code
+│       └── bodhi-design.md        # /bodhi-design command for design-first workflow
+├── bodhi_engine/                  # Core engine — parser, knowledge graph, validator
 │   ├── parser/                    # Parses @bodhi.* tags and .bodhi/*.yaml
 │   ├── validator/                 # Checks DSL completeness and consistency
-│   ├── cli/                       # bodhi validate / stats / graph / serve
 │   ├── knowledge.py               # In-memory knowledge graph for queries
-│   └── mcp_server.py              # MCP server exposing query tools
-├── tests/                         # 38 tests
-├── bodhi_dsl_specification.md     # Full DSL specification
+│   ├── deriver.py                 # Scaffold Layer 2 YAML from inline tags
+│   └── workspace.py               # Multi-service workspace aggregation
+├── bodhi_app/                     # Application layer — CLI, MCP, visualization
+│   ├── cli/                       # CLI commands (validate, show, graph, etc.)
+│   ├── mcp/                       # MCP server (single + federated workspace)
+│   └── diagnose.py                # Log diagnosis
+├── tests/                         # 147 tests
 └── pyproject.toml
 ```
+
+## Examples
+
+### Flow Visualization (`bodhi show flow`)
+
+Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling, and cross-service calls.
+
+![bodhi show flow](images/flow.png)
+
+### Coverage Dashboard (`bodhi show stats`)
+
+See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable hints about missing annotations.
+
+![bodhi show stats](images/status.png)
+
+### Flow Graph (`bodhi graph`)
+
+Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables, events, and remote calls. Tables sharing the same datasource are grouped together.
+
+![bodhi graph](images/graph.png)
 
 ## Full Specification
 
