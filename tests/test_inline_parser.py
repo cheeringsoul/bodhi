@@ -147,8 +147,9 @@ class TestDirectoryParser:
     def test_parse_directory(self):
         functions = parse_directory(FIXTURES / "src")
         # 3 from OrderService.java + 2 from OrderServiceImpl.java
-        # + 2 from NotificationHandler.java + 2 from Python = 9
-        assert len(functions) == 9
+        # + 2 from NotificationHandler.java + 2 from Python
+        # + 2 from PaymentService.java = 11
+        assert len(functions) == 11
 
     def test_skips_non_source_files(self):
         # Should not crash on non-source files in directory

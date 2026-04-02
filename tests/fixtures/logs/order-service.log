@@ -1,5 +1,0 @@
-2026-04-02 10:30:00 INFO OrderService.create - Received create order request for user U123
-2026-04-02 10:30:01 INFO Order 12345 created successfully
-2026-04-02 10:30:02 INFO InventoryService.deduct - Inventory deducted for product P99, orderId=12345
-2026-04-02 10:30:05 ERROR Payment failed for order 12345: timeout
-2026-04-02 10:30:05 WARN OrderService.create - Circuit breaker triggered for payment-service

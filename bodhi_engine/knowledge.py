@@ -7,6 +7,7 @@ and exposes query methods for MCP tools.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,62 @@ from .parser.yaml_parser import (
     Channel, Topology,
 )
 from .parser.inline import FunctionDSL
+
+
+@dataclass
+class _LogPattern:
+    """A compiled log pattern from @bodhi.log.success or @bodhi.log.error."""
+    fn: str                # qualified function name
+    pattern_type: str      # "success" or "error"
+    raw_pattern: str       # original pattern string
+    regex: re.Pattern      # compiled regex
+    fields: list[str]      # placeholder field names in order
+
+
+@dataclass
+class LogMatchResult:
+    """Result of matching a log line against the pattern registry."""
+    fn: str                # matched function name
+    pattern_type: str      # "success", "error", or "function_name"
+    raw_pattern: str       # the pattern or function name that matched
+    matched_line: str      # the actual log line that matched
+    extracted: dict[str, str]  # extracted placeholder values, e.g. {"orderId": "12345"}
+    flows: list[str]       # flow names that contain this function
+    intent: str | None     # function intent from @bodhi.intent
+
+
+def _compile_bodhi_pattern(pattern: str) -> tuple[re.Pattern, list[str]]:
+    """Compile a @bodhi.log.* pattern into a regex + field name list.
+
+    Example: "Order {orderId} created successfully"
+           → (re.compile("Order (.+?) created successfully"), ["orderId"])
+
+    Strips surrounding quotes from the pattern (common in @bodhi.log.* values).
+    The last placeholder uses greedy (.+) since there's no trailing text to bound it.
+    """
+    # Strip surrounding quotes
+    pattern = pattern.strip().strip('"').strip("'")
+
+    fields: list[str] = []
+    parts = re.split(r"\{(\w+)\}", pattern)
+    # Count total placeholders
+    total_placeholders = sum(1 for i in range(len(parts)) if i % 2 == 1)
+    placeholder_index = 0
+
+    regex_parts = []
+    for i, part in enumerate(parts):
+        if i % 2 == 0:
+            regex_parts.append(re.escape(part))
+        else:
+            fields.append(part)
+            placeholder_index += 1
+            # Last placeholder: greedy, everything else: non-greedy
+            if placeholder_index == total_placeholders:
+                regex_parts.append(r"(.+)")
+            else:
+                regex_parts.append(r"(.+?)")
+    compiled = re.compile("".join(regex_parts), re.IGNORECASE)
+    return compiled, fields
 
 
 @dataclass
@@ -77,6 +134,124 @@ class BodhiKnowledge:
         self._topology_by_name: dict[str, Topology] = {
             t.name: t for t in self.dsl.get("topologies", [])
         }
+
+        # Log pattern registry: compiled regexes from @bodhi.log.* tags
+        self._log_registry: list[_LogPattern] = self._build_log_registry()
+
+    def _build_log_registry(self) -> list[_LogPattern]:
+        """Build a registry of compiled log patterns from all @bodhi.log.* tags."""
+        registry: list[_LogPattern] = []
+        for fn in self.functions:
+            for pattern_str in fn.log_success:
+                regex, fields = _compile_bodhi_pattern(pattern_str)
+                registry.append(_LogPattern(
+                    fn=fn.qualified_name,
+                    pattern_type="success",
+                    raw_pattern=pattern_str,
+                    regex=regex,
+                    fields=fields,
+                ))
+            for pattern_str in fn.log_error:
+                regex, fields = _compile_bodhi_pattern(pattern_str)
+                registry.append(_LogPattern(
+                    fn=fn.qualified_name,
+                    pattern_type="error",
+                    raw_pattern=pattern_str,
+                    regex=regex,
+                    fields=fields,
+                ))
+        return registry
+
+    # -- match_log: core engine capability --
+
+    def match_log(self, log_text: str) -> list[LogMatchResult]:
+        """Match a user-provided log snippet against the @bodhi.log.* pattern registry.
+
+        For each line in the log text, try all registered patterns.
+        Returns matched functions, pattern type (success/error),
+        extracted variables, and associated flow context.
+
+        This is a pure engine capability — no log file access needed.
+        The application layer decides what to do with the matches
+        (e.g. build a diagnosis, show context, trace impact).
+        """
+        results: list[LogMatchResult] = []
+        seen: set[tuple[str, str]] = set()  # (fn, line) dedup
+
+        for line in log_text.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            for lp in self._log_registry:
+                m = lp.regex.search(line)
+                if not m:
+                    continue
+
+                dedup_key = (lp.fn, line)
+                if dedup_key in seen:
+                    continue
+                seen.add(dedup_key)
+
+                # Extract named fields from the match
+                extracted = {}
+                for i, field_name in enumerate(lp.fields):
+                    try:
+                        extracted[field_name] = m.group(i + 1)
+                    except IndexError:
+                        pass
+
+                # Find which flows this function belongs to
+                flows_containing = []
+                for flow_name, flow in self._flow_by_name.items():
+                    for step in flow.steps:
+                        if step.fn == lp.fn:
+                            flows_containing.append(flow_name)
+                            break
+
+                # Get the FunctionDSL for richer context
+                fn_dsl = self._fn_by_name.get(lp.fn)
+
+                results.append(LogMatchResult(
+                    fn=lp.fn,
+                    pattern_type=lp.pattern_type,
+                    raw_pattern=lp.raw_pattern,
+                    matched_line=line,
+                    extracted=extracted,
+                    flows=flows_containing,
+                    intent=fn_dsl.intent if fn_dsl else None,
+                ))
+
+        # Also try matching function names directly (fallback for untagged logs)
+        for line in log_text.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            for fn_name, fn_dsl in self._fn_by_name.items():
+                if fn_name in line:
+                    dedup_key = (fn_name, line)
+                    if dedup_key in seen:
+                        continue
+                    seen.add(dedup_key)
+
+                    flows_containing = []
+                    for flow_name, flow in self._flow_by_name.items():
+                        for step in flow.steps:
+                            if step.fn == fn_name:
+                                flows_containing.append(flow_name)
+                                break
+
+                    results.append(LogMatchResult(
+                        fn=fn_name,
+                        pattern_type="function_name",
+                        raw_pattern=fn_name,
+                        matched_line=line,
+                        extracted={},
+                        flows=flows_containing,
+                        intent=fn_dsl.intent if fn_dsl else None,
+                    ))
+
+        return results
 
     # -- list helpers --
 
