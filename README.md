@@ -310,11 +310,11 @@ bodhi/
 
 ## Full Specification
 
-See [bodhi-dsl-specification.md](docs/bodhi-dsl-specification.md) for the complete DSL specification.
+See [bodhi-dsl-specification.md](bodhi_engine/docs/bodhi-dsl-specification.md) for the complete DSL specification.
 
 ## Architecture & Vision
 
-See [architecture-and-vision.md](docs/architecture-and-vision.md) for the target architecture (MCP server), future data sources (DB, logs, metrics, traces), and long-term vision (cross-repo tracing, intent-to-code generation, living architecture diagrams).
+See [architecture-and-vision.md](bodhi_engine/docs/architecture-and-vision.md) for the target architecture (MCP server), future data sources (DB, logs, metrics, traces), and long-term vision (cross-repo tracing, intent-to-code generation, living architecture diagrams).
 
 ## License
 
