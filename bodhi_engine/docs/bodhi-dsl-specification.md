@@ -34,15 +34,18 @@ one that knows what it does and why, and can explain itself to any AI agent that
 
 ## 2. Design Principles
 
-1. **Completeness**: DSL carries enough information to support bug triage, impact analysis, code Q&A, test generation,
+1. **Design-first (top-down)**: The recommended workflow is to write `.bodhi/` YAML first — flows, entities, events,
+   state machines — then let AI generate code guided by the skeleton. This ensures system-level coherence before any
+   code exists. Even when coding incrementally, AI produces the YAML skeleton for review before writing implementation.
+2. **Completeness**: DSL carries enough information to support bug triage, impact analysis, code Q&A, test generation,
    and cross-service tracing.
-2. **Generatability**: AI generates inline tags as a byproduct of writing code. System-level YAML files (flows, states,
-   events, services) are derived from inline tags by tooling — not maintained by hand.
-3. **Extensibility**: The `@bodhi.*` namespace allows infinite extension without schema changes.
-4. **Language-agnostic**: Works with Java, Python, Go, TypeScript, Kotlin — adapting to each language's doc comment
-   syntax.
-5. **Two-layer complementarity**: Function-level inline tags (source of truth) + system-level YAML files (derived views),
-   each serving a distinct purpose.
+3. **Generatability**: AI generates inline tags as a byproduct of writing code. System-level YAML files (flows, states,
+   events, services) can also be derived from inline tags by tooling when retrofitting existing code.
+4. **Extensibility**: The `@bodhi.*` namespace allows infinite extension without schema changes.
+5. **Language-agnostic**: Works with Java, Python, Go, TypeScript, Kotlin, Rust, C#, C, C++ — adapting to each
+   language's doc comment syntax.
+6. **Two-layer complementarity**: Function-level inline tags (source of truth) + system-level YAML files (structural
+   views), each serving a distinct purpose.
 
 ---
 
@@ -50,31 +53,54 @@ one that knows what it does and why, and can explain itself to any AI agent that
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                  Bodhi DSL: Two-Layer Architecture            │
+│                  Bodhi: Three-Layer Architecture              │
 │                                                              │
+│  bodhi_app — Application Layer                               │
+│  ─────────────────────────────                               │
+│  CLI: validate, check, stats, derive, show, graph            │
+│  MCP Server: single-service + federated workspace            │
+│  Terminal visualization: flow chains, coverage dashboards     │
+│  Graph export: Mermaid, HTML, SVG/PNG                        │
+│                                                              │
+│  bodhi_engine — Core Engine                                  │
+│  ──────────────────────────                                  │
+│  Parser: @bodhi.* inline tags + .bodhi/ YAML                 │
+│  Knowledge Graph: in-memory index, query methods             │
+│  Validator: completeness + consistency rules                 │
+│  Deriver: scaffold Layer 2 from inline tags                  │
+│  Workspace: multi-service aggregation                        │
+│                                                              │
+│  DSL Data — Two Complementary Layers                         │
+│  ────────────────────────────────────                        │
 │  Layer 1: Inline Tags (@bodhi.*)                             │
-│  ─────────────────────────────────                           │
-│  Location: doc comments of functions/methods                 │
-│  Granularity: single function                                │
-│  Maintained by: AI co-generation (written with code)         │
+│  Location: doc comments, single function granularity         │
 │  Answers: "What does this function do?"                      │
 │                                                              │
 │  Layer 2: System Files (.bodhi/)                             │
-│  ─────────────────────────────────                           │
-│  Location: .bodhi/ directory at project root                 │
-│  Granularity: cross-function / cross-module / system-wide    │
-│  Manual: entities, concepts  |  Derived: flows, states,     │
-│          events, services (from inline tags)                  │
+│  Location: .bodhi/ directory, system-wide granularity        │
 │  Answers: "How does the system work?"                        │
 │                                                              │
-│  ┌─────────┐   derive    ┌──────────┐                       │
-│  │ @bodhi.*│  ─────────► │ .bodhi/  │                       │
-│  │ inline  │   (tooling) │  YAML    │                       │
-│  └─────────┘    locate   └──────────┘                       │
-│                 ◄──────────                                  │
-│              (trace back to functions)                        │
+│  ┌─────────┐  design-first  ┌──────────┐                    │
+│  │ .bodhi/ │  ────────────►  │  Code +  │                    │
+│  │  YAML   │  (AI generates) │ @bodhi.* │                    │
+│  └─────────┘                 └──────────┘                    │
+│       ▲          derive (retrofit)    │                      │
+│       └───────────────────────────────┘                      │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+### Design-First Workflow
+
+The recommended approach is **top-down**: describe the feature in natural language, let AI produce the `.bodhi/` YAML
+skeleton first (flows, entities, events, state machines), review the design, then let AI generate code + inline tags
+guided by the skeleton.
+
+```
+Describe feature → AI writes .bodhi/ YAML skeleton → Review → AI writes code + @bodhi.* tags
+```
+
+This ensures system-level coherence (correct flows, entity relationships, event chains) before any code is written.
+For existing codebases, the reverse path also works: `bodhi derive` scaffolds Layer 2 YAML from inline tags.
 
 ### How the Two Layers Relate
 
@@ -475,20 +501,20 @@ public void handle(RoutingContext rc) {
 
 ## 5. Layer 2: System Files
 
-Layer 2 files live in the `.bodhi/` directory and fall into two categories:
+Layer 2 files live in the `.bodhi/` directory. In the **design-first workflow**, these are written first by AI as a
+design skeleton, reviewed by the developer, then used to guide code generation. In the **retrofit workflow** (existing
+code), they are derived from inline tags by `bodhi derive`.
 
-**Manually maintained** (written alongside code):
-- `bodhi.yaml` — project metadata
+**Core structure files**:
+- `bodhi.yaml` — project metadata + runtime config
+- `flows/*.yaml` — request-to-response call chains
 - `entities/*.yaml` — database entity schemas
+- `states/*.yaml` — state machine definitions
+- `events/*.yaml` — event catalog (producers/consumers)
+- `services/*.yaml` — service topology and dependencies
+- `channels/*.yaml` — bidirectional channels (WebSocket, TCP, SSE)
+- `topology/*.yaml` — cross-service event chains
 - `concepts/*.yaml` — business glossary
-
-**Derived from inline tags** (generated by tooling, not maintained by hand):
-- `flows/*.yaml` — derived from `@bodhi.calls` chains
-- `states/*.yaml` — derived from `@bodhi.writes table(status)` + transition logic
-- `events/*.yaml` — derived from `@bodhi.emits` + `@bodhi.consumes` pairs
-- `services/*.yaml` — derived from `@bodhi.calls ... via` across services
-
-Derived files are regenerated on demand (e.g., via `bodhi-scan`). They should not be manually edited — any manual changes will be overwritten on the next regeneration.
 
 ### 5.1 Directory Structure
 
@@ -531,13 +557,21 @@ project:
   languages: [ java, kotlin ]
   frameworks: [ vertx, mongodb ]
 
-# Inline tag parsing per language
-inline:
-  java: javadoc       # /** @bodhi.* */
-  python: docstring   # """ @bodhi.* """
-  go: line_comment    # // @bodhi.*
-  typescript: jsdoc   # /** @bodhi.* */
+# Runtime config — for log diagnosis and observability features
+runtime:
+  logs:
+    - name: app-log
+      type: file                   # file, elasticsearch, loki, cloudwatch
+      path: logs/app.log
+      format: json                 # json, text, logfmt
+      timestamp_field: timestamp
+      message_field: message
+  time_window: 30s                 # default time window for log queries
+  default_trace_field: traceId     # correlation ID field name
 ```
+
+The `runtime` block is optional. When present, it configures log diagnosis features (`bodhi diagnose_log`)
+to locate and parse log sources.
 
 ### 5.3 Flow — `.bodhi/flows/*.yaml`
 
@@ -547,6 +581,7 @@ system?"
 ```yaml
 name: create_order
 description: Complete order creation flow, from HTTP request to persistence and event publishing
+trace_key: orderId             # correlation ID for log-driven debugging
 
 entry:
   type: http          # http | grpc | mq_consumer | event | scheduler | websocket
@@ -615,6 +650,7 @@ events:
 |--------------------|----------|-----------------------------------------------------------------------|
 | `name`             | Yes      | Unique flow identifier, snake_case                                    |
 | `description`      | Yes      | One-line description                                                  |
+| `trace_key`        | No       | Correlation ID field for log-driven debugging (e.g., `orderId`)       |
 | `entry`            | Yes      | Entry point info (type, method, path)                                 |
 | `entry.type`       | Yes      | `http` / `grpc` / `mq_consumer` / `event` / `scheduler` / `websocket` |
 | `steps`            | Yes      | Ordered array of call chain steps                                     |
@@ -1033,8 +1069,6 @@ distributed:
 
 ### 5.12 Business Glossary — `.bodhi/concepts/*.yaml`
 
-> Section numbering note: sections 5.8–5.11 were added for distributed project support.
-
 **Purpose**: Defines business terms and concepts that appear in code. Answers "what does this business term mean?"
 
 ```yaml
@@ -1114,27 +1148,33 @@ reason about.
 ```
 .bodhi/ directory
   │
-  ├── flows/*.yaml    → Call chain graphs (entry → steps → terminal)
-  ├── states/*.yaml   → State transition graphs
-  ├── entities/*.yaml → Entity relationship graphs
-  ├── events/*.yaml   → Event chain graphs (producer → event → consumer)
-  ├── services/*.yaml → Service dependency graphs
-  └── concepts/*.yaml → Business concept index
+  ├── flows/*.yaml      → Call chain graphs (entry → steps → terminal)
+  ├── states/*.yaml     → State transition graphs
+  ├── entities/*.yaml   → Entity relationship graphs
+  ├── events/*.yaml     → Event chain graphs (producer → event → consumer)
+  ├── services/*.yaml   → Service dependency graphs
+  ├── channels/*.yaml   → Bidirectional channel definitions
+  ├── topology/*.yaml   → Cross-service event chain graphs
+  └── concepts/*.yaml   → Business concept index
 
 Source code @bodhi.* tags
   │
   ├── Function-level semantic nodes
   ├── Call relationship edges
-  └── Data read/write relationship edges
+  ├── Data read/write relationship edges
+  └── Log pattern registry (@bodhi.log.*)
 
 Combined Knowledge Graph
   ├── Function nodes (with intent, reads, writes, on_fail)
-  ├── Entity nodes (with fields, enum, relations)
+  ├── Entity nodes (with fields, enum, relations, datasource)
   ├── State nodes (with transitions)
   ├── Service nodes (with APIs, dependencies, resilience)
+  ├── Channel nodes (with inbound/outbound events)
+  ├── Topology nodes (with cross-service event chains)
   ├── Flow edges (linking function call chains)
   ├── Data edges (function ↔ entity read/write)
-  └── Event edges (function → event → function)
+  ├── Event edges (function → event → function)
+  └── Log patterns (function → log pattern → extracted variables)
 ```
 
 ### 7.2 Agent Capability Matrix
@@ -1147,12 +1187,14 @@ Which DSL data enables which AI agent capabilities:
 | **Impact Analysis**              | `writes` + `entities.relations` + `related_flows`          |
 | **Code Q&A**                     | `intent` + `calls` + `reads/writes`                        |
 | **Flow Tracing**                 | `flows` + `calls` + `emits/consumes`                       |
+| **Flow Visualization**           | `flows` + `entities.datasource` → terminal, Mermaid, HTML  |
+| **Log Diagnosis**                | `log.success` + `log.error` → pattern match + variable extraction + flow context |
 | **Test Generation**              | `reads` + `writes` + `on_fail` + `validate`                |
 | **Security Audit**               | `auth` + `sensitive` + `reads/writes`                      |
 | **Performance Diagnosis**        | `metric` + `calls` (N+1 detection)                         |
 | **Migration Impact**             | `entities` + `writes` + `related_flows`                    |
-| **Log Correlation**              | `log.success` + `log.error`                                |
-| **Service Dependency Analysis**  | `services` + `calls(via)` + `emits/consumes`               |
+| **Service Dependency Analysis**  | `services` + `calls(via)` + `emits/consumes` + `topology`  |
+| **Channel Analysis**             | `channels` + `inbound/outbound_events` + `triggers_flow`   |
 | **Failure Propagation Analysis** | `services.depends_on` + `on_fail(circuit_breaker/degrade)` |
 
 ### 7.3 Example: AI Bug Triage
@@ -1253,25 +1295,29 @@ maintained), version control serves as a snapshot of the DSL state at each commi
 Bodhi DSL today is an annotation protocol. But the structured semantic data it produces unlocks capabilities that grow
 with adoption:
 
-### Near-term (single repo)
+### Near-term (single repo) — mostly done
 
 - **AI Bug Triage**: Agent reads flows, states, and error paths to diagnose production issues without human explanation
-  of business logic.
+  of business logic. ✅ Implemented via MCP tools.
 - **Impact Analysis**: Change a database field → AI traces every function that reads/writes it, every flow that touches
-  it, every downstream service.
+  it, every downstream service. ✅ Implemented via `impact_analysis` tool.
+- **Log Diagnosis**: Paste a log snippet → engine matches against `@bodhi.log.*` patterns, extracts business variables,
+  returns flow context and matched functions. ✅ Implemented via `diagnose_log` tool.
+- **Flow Visualization**: Terminal call chains (`show flow`), coverage dashboards (`show stats`), Mermaid/HTML graph
+  export (`graph`), DB nodes grouped by datasource. ✅ Implemented.
 - **Test Generation**: `reads` + `writes` + `on_fail` fully describes a function's inputs, outputs, and failure modes —
   enough to generate test skeletons.
 - **Architecture-aware Code Review**: PR changes a function → AI checks if new writes have error handling, remote calls
   have resilience, entity references exist.
 
-### Mid-term (cross-repo / cross-service)
+### Mid-term (cross-repo / cross-service) — partially done
 
 - **Global Service Dependency Graph**: Every microservice repo has `.bodhi/services/`. Aggregate them → complete system
-  topology. "What breaks if payment-service goes down?" becomes answerable.
+  topology. ✅ Implemented via `bodhi serve-all` federated MCP + `workspace-validate`.
 - **Cross-service Flow Tracing**: order-service flow hits `PaymentService.charge via http` → jump to payment-service
-  repo and continue tracing. Full request path from gateway to database, statically — no Jaeger needed.
-- **Event Chain Panorama**: `emits` + `consumes` + `events/` across all repos → complete event lineage. "What ultimately
-  happens when `order_created` fires?" → recursive trace to notifications, analytics, inventory sync.
+  repo and continue tracing. ✅ Implemented via `flow_ref` + cross-service flow steps.
+- **Event Chain Panorama**: `emits` + `consumes` + `events/` across all repos → complete event lineage. ✅ Partially
+  implemented via `topology/*.yaml` + `query_topology` tool.
 
 ### Long-term (generative)
 
@@ -1280,7 +1326,8 @@ with adoption:
 - **Automated Architecture Compliance**: Define rules ("all writes must have on_fail", "all remote calls must have
   circuit_breaker", "PII fields must be marked sensitive") → CI enforces them automatically.
 - **Living Architecture Diagrams**: Auto-generate C4 models, sequence diagrams, ER diagrams, state machine diagrams from
-  services → flows → entities → states. Always in sync with code because the data source *is* the code.
+  services → flows → entities → states. Always in sync with code because the data source *is* the code. (Flow call
+  graphs and coverage dashboards are already implemented.)
 - **Failure Simulation**: "What if payment-service times out for 5 seconds?" → Agent reads `depends_on.resilience` for
   timeout/circuit breaker config, reads `on_fail` for fallback behavior, reads downstream consumers for cascading
   impact. Chaos engineering without the chaos.

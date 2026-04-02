@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="bodhi.svg" width="160" alt="Bodhi DSL Logo">
+  <img src="images/bodhi.svg" width="160" alt="Bodhi DSL Logo">
   <h1>Bodhi DSL</h1>
   <p><strong>v0.1.0 — Early Preview</strong> | Solo research project. Development pace depends on availability. Issues and ideas welcome; response time is not guaranteed.</p>
   <p><em>The semantic layer between code and AI — making every codebase self-describing.</em></p>
@@ -172,19 +172,19 @@ bodhi validate .
 
 Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling, and cross-service calls.
 
-![bodhi show flow](docs/flow.png)
+![bodhi show flow](images/flow.png)
 
 ### Coverage Dashboard (`bodhi show stats`)
 
 See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable hints about missing annotations.
 
-![bodhi show stats](docs/status.png)
+![bodhi show stats](images/status.png)
 
 ### Flow Graph (`bodhi graph`)
 
 Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables, events, and remote calls. Tables sharing the same datasource are grouped together.
 
-![bodhi graph](docs/graph.png)
+![bodhi graph](images/graph.png)
 
 ## CLI Reference
 

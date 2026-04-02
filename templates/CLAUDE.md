@@ -218,11 +218,17 @@ project:
   languages: [java]
   frameworks: [spring-boot, mybatis]
 
-inline:
-  java: javadoc
-  python: docstring
-  go: line_comment
-  typescript: jsdoc
+# Optional: runtime config for log diagnosis
+runtime:
+  logs:
+    - name: app-log
+      type: file                   # file, elasticsearch, loki, cloudwatch
+      path: logs/app.log
+      format: json                 # json, text, logfmt
+      timestamp_field: timestamp
+      message_field: message
+  time_window: 30s
+  default_trace_field: traceId
 ```
 
 ---
@@ -245,11 +251,8 @@ project:
 
 distributed:
   system: "ecommerce-platform"           # System name — all services in the same system share this
-  registry: "git@github.com:org/bodhi-registry.git"  # Central registry repo
   service: "order-service"               # This service's name (must match registry entry)
-
-inline:
-  java: javadoc
+  registry: "git@github.com:org/bodhi-registry.git"  # Central registry repo
 ```
 
 The `distributed` block tells tooling: this repo is part of a larger system, and cross-service references should resolve against the registry.
