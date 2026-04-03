@@ -10,6 +10,7 @@ Usage:
     bodhi show flow [<name>]   Visualize a flow's call chain (terminal)
     bodhi show stats           Coverage dashboard (terminal)
     bodhi serve [<path>]       Start MCP server for AI coding assistants
+    bodhi impact-pr [<path>]   Analyse git diff and produce PR impact report
 """
 
 import argparse
@@ -20,8 +21,9 @@ from pathlib import Path
 from bodhi_engine.parser import parse_directory, load_bodhi_dir
 from bodhi_engine.validator.checker import validate, format_report
 from bodhi_engine.deriver import scaffold, validate_consistency
-from bodhi_app.cli.graph import cmd_graph
-from bodhi_app.cli.show import cmd_show_flow, cmd_show_stats
+from bodhi_engine.cli.graph import cmd_graph
+from bodhi_engine.cli.show import cmd_show_flow, cmd_show_stats
+from bodhi_app.cli.impact_pr import cmd_impact_pr
 
 
 def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
@@ -121,6 +123,14 @@ def main():
     )
     p_serve_all.add_argument("path", nargs="?", default=".", help="Workspace directory containing service repos")
 
+    p_impact = subparsers.add_parser(
+        "impact-pr",
+        help="Analyse a git diff and produce a PR impact report",
+    )
+    p_impact.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_impact.add_argument("--base", metavar="REF", help="Base git ref (e.g. main, HEAD~3)")
+    p_impact.add_argument("--head", metavar="REF", help="Head git ref (default: HEAD)")
+
     p_workspace_validate = subparsers.add_parser(
         "workspace-validate",
         help="Validate cross-service consistency in a workspace",
@@ -171,6 +181,19 @@ def main():
         services = ", ".join(ws_result.service_data.keys())
         print(f"Bodhi workspace MCP server starting — services: {services}", file=sys.stderr)
         workspace_mcp.run()
+    elif args.command == "impact-pr":
+        import sys as _sys
+        stdin_text = None
+        if not _sys.stdin.isatty():
+            stdin_text = _sys.stdin.read()
+        md = cmd_impact_pr(
+            project_root,
+            base=args.base,
+            head=args.head,
+            diff_text=stdin_text if stdin_text else None,
+            exclude_dirs=exclude_dirs,
+        )
+        print(md)
     elif args.command == "workspace-validate":
         from bodhi_engine.workspace import load_workspace
         ws_result = load_workspace(project_root)

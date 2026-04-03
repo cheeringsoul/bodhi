@@ -179,6 +179,17 @@ bodhi stats [path]                 # Output coverage statistics as JSON
 bodhi derive [path]                # Scaffold .bodhi/ YAML from inline tags (cold-start)
 ```
 
+### PR Impact Analysis
+
+```bash
+bodhi impact-pr [path]                        # Analyse uncommitted changes
+bodhi impact-pr [path] --base main            # Analyse changes since main
+bodhi impact-pr [path] --base main --head dev # Analyse a specific range
+git diff main...HEAD | bodhi impact-pr [path] # Pipe diff via stdin
+```
+
+Traces changed functions through the knowledge graph and outputs a Markdown impact report: affected flows, data reads/writes, event impacts, cross-service dependencies, and risks. Designed to be posted as a PR comment — see [`bodhi_app/templates/ci/bodhi-impact-pr.yml`](bodhi_app/templates/ci/bodhi-impact-pr.yml) for a ready-to-use GitHub Actions workflow.
+
 ### Visualization
 
 ```bash
@@ -237,11 +248,15 @@ bodhi workspace-validate [path]    # Validate cross-service consistency (event s
 
 ### CI Integration
 
-```yaml
-- name: Validate Bodhi DSL
-  run: |
-    pip install bodhi-engine
-    bodhi validate .
+Ready-to-use GitHub Actions workflows are in [`bodhi_app/templates/ci/`](bodhi_app/templates/ci/):
+
+- **[`bodhi-validate.yml`](bodhi_app/templates/ci/bodhi-validate.yml)** — validates DSL completeness on every PR
+- **[`bodhi-impact-pr.yml`](bodhi_app/templates/ci/bodhi-impact-pr.yml)** — posts a Bodhi impact analysis comment on every PR (uses `bodhi impact-pr`)
+
+Copy the one you need into your project's `.github/workflows/` directory.
+
+```bash
+cp bodhi/bodhi_app/templates/ci/bodhi-impact-pr.yml /path/to/your-project/.github/workflows/
 ```
 
 `bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or coverage tracking.
@@ -312,7 +327,7 @@ bodhi/
 │   ├── cli/                       # CLI commands (validate, show, graph, etc.)
 │   ├── mcp/                       # MCP server (single + federated workspace)
 │   └── diagnose.py                # Log diagnosis
-├── tests/                         # 147 tests
+├── tests/                         # 180 tests
 └── pyproject.toml
 ```
 
