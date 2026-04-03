@@ -526,6 +526,31 @@ In addition to the 6 standard questions, ask these for every method in a distrib
 
 The core principle: **code should be statically traceable from source text alone.** If AI cannot determine the execution path, data flow, or call target by reading the source, the code is not AI-friendly. `@bodhi.*` tags are a remediation for unavoidable indirection — not a substitute for writing traceable code in the first place.
 
+### Pre-Implementation: Identify Design Pattern Opportunities
+
+**Before writing code**, scan the requirements for these signals and apply the corresponding pattern. Do not over-engineer — only use a pattern when the scenario clearly matches. If none match, write plain functions.
+
+| Signal in Requirements | Pattern | When to Use |
+|------------------------|---------|-------------|
+| Complex object with many optional fields | **Builder** | 4+ optional parameters, or construction has steps/validation |
+| Multiple steps that follow a fixed sequence, but individual steps vary | **Template Method** | Processing pipelines, lifecycle hooks, report generation |
+| Need a clean entry point that orchestrates multiple subsystems | **Facade** | Simplifying a complex internal API for external callers |
+| Object behaves differently based on its state, with defined transitions | **State** | Order lifecycle, connection states, approval workflows |
+| A request passes through a series of checks/transformations in order | **Chain of Responsibility** | Validation chains, middleware pipelines, approval chains |
+| Wrap an incompatible interface to match what the caller expects | **Adapter** | Integrating third-party SDKs, legacy system wrappers |
+| Encapsulate an operation as an object (undo, queue, log) | **Command** | Task queues, undo/redo, operation logging |
+| Add behavior to an object without changing its class (2-3 layers max) | **Decorator** | Logging, caching, retry wrappers around a core function |
+| Multiple algorithms/strategies selected by explicit condition | **Strategy (explicit routing)** | Payment channels, notification methods, pricing rules — **must use `switch`/`if` at call site** |
+| One event triggers reactions in multiple independent components | **Observer (with `@bodhi` tags)** | Domain events — **must add `@bodhi.emits`/`@bodhi.consumes`** |
+
+**Rules:**
+- Only apply a pattern when the code **already has** the complexity that the pattern addresses — never "in case we need it later"
+- Prefer the simplest pattern that fits. If a plain `if`/`switch` is clear enough, skip the pattern
+- Strategy and Observer must follow the traceability rules below (explicit routing, `@bodhi` tags)
+- Avoid: Visitor (double dispatch), dynamic Proxy, Mediator with reflection — these break static traceability
+
+**Self-check before implementing:** "Does this code have repeated structure, complex branching, state transitions, or multi-step orchestration?" If yes, pick the matching pattern from the table above. If no, write plain functions.
+
 ### Prefer Functions + Modules Over Classes + Inheritance
 
 Write code as **direct function calls** with **explicit data flow**. Avoid introducing indirection layers unless the problem genuinely requires runtime polymorphism.
