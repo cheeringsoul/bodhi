@@ -93,6 +93,11 @@ class TestWorkspaceValidation:
         issue = schema_issues[0]
         assert "order_created" in issue.message
         assert issue.severity == IssueSeverity.ERROR
+        # Detailed diff: should show which service has which extra fields
+        assert "order-service" in issue.message
+        assert "payment-service" in issue.message
+        assert "userId" in issue.message
+        assert "buyerId" in issue.message
 
     def test_detects_broken_flow_ref(self, ws):
         # order-service references payment-service:hold_payment which exists

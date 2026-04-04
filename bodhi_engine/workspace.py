@@ -167,6 +167,7 @@ def load_workspace(workspace_path: Path) -> WorkspaceResult:
 
 def _merge_all(result: WorkspaceResult) -> None:
     """Merge all service data into the global indexes."""
+    _event_origin: dict[str, str] = {}  # event name → first service that defined it
     for svc_name, sd in result.service_data.items():
         # Flows: namespaced as "service:flow_name"
         for flow in sd.flows:
@@ -181,7 +182,8 @@ def _merge_all(result: WorkspaceResult) -> None:
         # Events: merged by event name (multiple services may reference same event)
         for event in sd.events:
             if event.name in result.all_events:
-                _merge_event(result.all_events[event.name], event, svc_name, result)
+                _merge_event(result.all_events[event.name], event, svc_name,
+                             _event_origin, result)
             else:
                 result.all_events[event.name] = Event(
                     name=event.name,
@@ -191,6 +193,7 @@ def _merge_all(result: WorkspaceResult) -> None:
                     producers=list(event.producers),
                     consumers=list(event.consumers),
                 )
+                _event_origin[event.name] = svc_name
 
         # Services
         for svc in sd.services:
@@ -212,6 +215,7 @@ def _merge_all(result: WorkspaceResult) -> None:
 
 
 def _merge_event(existing: Event, new: Event, new_service: str,
+                 event_origin: dict[str, str],
                  result: WorkspaceResult) -> None:
     """Merge a new event definition into an existing one.
 
@@ -238,13 +242,24 @@ def _merge_event(existing: Event, new: Event, new_service: str,
         missing_in_existing = new_fields - existing_fields
 
         if missing_in_new or missing_in_existing:
+            origin_service = event_origin.get(existing.name, "unknown")
+            diff_parts = []
+            if missing_in_new:
+                diff_parts.append(
+                    f"fields in {origin_service} but not {new_service}: "
+                    f"{sorted(missing_in_new)}")
+            if missing_in_existing:
+                diff_parts.append(
+                    f"fields in {new_service} but not {origin_service}: "
+                    f"{sorted(missing_in_existing)}")
             result.issues.append(WorkspaceIssue(
                 severity=IssueSeverity.ERROR,
                 code="event-schema-mismatch",
-                message=f"Event '{existing.name}' has inconsistent schema across services. "
-                        f"Fields only in one side: "
-                        f"{missing_in_new | missing_in_existing}",
+                message=f"Event '{existing.name}' has inconsistent schema "
+                        f"between {origin_service} and {new_service}. "
+                        + "; ".join(diff_parts),
                 service=new_service,
+                related_service=origin_service,
             ))
 
 

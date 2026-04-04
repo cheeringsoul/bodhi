@@ -381,6 +381,12 @@ events, and remote calls. Tables sharing the same datasource are grouped togethe
 
 See [bodhi-dsl-specification.md](bodhi_engine/docs/bodhi-dsl-specification.md) for the complete DSL specification.
 
+## Roadmap
+
+- [x] **PR Impact Report** — Auto-generate impact analysis on pull requests via GitHub Action ([details](roadmap/01-pr-impact-report.md))
+- [x] **Cross-Service Validation** — Multi-repo workspace scanning with event schema diff, broken ref detection, and federated MCP server ([details](roadmap/02-cross-repo-registry.md))
+- [ ] **Runtime Intelligence** — Connect Bodhi's knowledge graph to logs, databases, and traces for live operational analysis ([details](roadmap/03-runtime-intelligence.md))
+
 ## Architecture & Vision
 
 See [architecture-and-vision.md](bodhi_engine/docs/architecture-and-vision.md) for the target architecture (MCP server),

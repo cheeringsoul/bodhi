@@ -116,6 +116,20 @@ their metadata, and checks for:
 bodhi workspace-validate /path/to/workspace
 ```
 
+Example output:
+
+```
+Errors (1):
+  [error] event-schema-mismatch (payment-service): Event 'order_created' has
+    inconsistent schema between order-service and payment-service.
+    fields in order-service but not payment-service: ['userId'];
+    fields in payment-service but not order-service: ['buyerId']
+Warnings (2):
+  [warning] event-no-consumer: Event 'payment_completed' has producers but no consumers
+  [warning] unknown-dependency (order-service): Service 'order-service' depends on
+    'kafka' which is not found in workspace
+```
+
 ## Module Structure
 
 ```

@@ -54,7 +54,9 @@ Services: 3
 
 Errors (1):
   [error] event-schema-mismatch (payment-service): Event 'order_created' has
-    inconsistent schema across services. Fields only in one side: {'buyerId', 'userId'}
+    inconsistent schema between order-service and payment-service.
+    fields in order-service but not payment-service: ['userId'];
+    fields in payment-service but not order-service: ['buyerId']
 Warnings (2):
   [warning] event-no-consumer: Event 'payment_completed' has producers but no consumers
   [warning] unknown-dependency (order-service): Service 'order-service' depends on
