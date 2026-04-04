@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bodhi-engine"
-version = "0.1.0"
+version = "0.1.1"
 description = "Parse and validate Bodhi DSL annotations (@bodhi.*) for CI integration."
 license = "MIT"
 requires-python = ">=3.11"

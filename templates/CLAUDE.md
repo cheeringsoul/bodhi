@@ -211,7 +211,7 @@ relations:
 Create once on project initialization:
 
 ```yaml
-version: "0.1.0"
+version: "0.1.1"
 project:
   name: "your-project-name"
   description: "Project description"
@@ -242,7 +242,7 @@ runtime:
 Every service repo MUST declare its identity in `bodhi.yaml`:
 
 ```yaml
-version: "0.1.0"
+version: "0.1.1"
 project:
   name: "order-service"
   description: "Core order service"

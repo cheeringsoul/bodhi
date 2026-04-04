@@ -287,7 +287,7 @@ class TestValidateConsistency:
         bodhi_dir = tmp_path / ".bodhi"
         bodhi_dir.mkdir()
         (bodhi_dir / "bodhi.yaml").write_text(
-            "version: '0.1.0'\nproject:\n  name: test\n  description: test\n"
+            "version: '0.1.1'\nproject:\n  name: test\n  description: test\n"
         )
 
         report = validate_consistency(tmp_path, bodhi_dir)

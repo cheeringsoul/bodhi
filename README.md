@@ -1,7 +1,7 @@
 <div align="center">
   <img src="images/bodhi.svg" width="160" alt="Bodhi DSL Logo">
   <h1>Bodhi DSL</h1>
-  <p><strong>v0.1.0 — Early Preview</strong> | Solo research project. Development pace depends on availability. Issues and ideas welcome; response time is not guaranteed.</p>
+  <p><strong>v0.1.1 — Early Preview</strong> | Solo research project. Development pace depends on availability. Issues and ideas welcome; response time is not guaranteed.</p>
   <p><em>The semantic layer between code and AI — making every codebase self-describing.</em></p>
 </div>
 

@@ -578,7 +578,7 @@ def parse_project_meta(data: dict) -> ProjectMeta:
     runtime_data = data.get("runtime")
     runtime = _parse_runtime_config(runtime_data) if runtime_data else None
     return ProjectMeta(
-        version=data.get("version", "0.1.0"),
+        version=data.get("version", "0.1.1"),
         name=project.get("name", ""),
         description=project.get("description", ""),
         languages=project.get("languages", []),

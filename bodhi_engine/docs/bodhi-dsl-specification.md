@@ -1,6 +1,6 @@
 # Bodhi DSL — Design & Specification
 
-> Version: 0.1.0 — Early Preview
+> Version: 0.1.1 — Early Preview
 > Date: 2026-03-29
 > Status: Early preview. DSL schema may evolve based on real-world usage. Feedback welcome.
 
@@ -552,7 +552,7 @@ code), they are derived from inline tags by `bodhi derive`.
 ### 5.2 Project Metadata — `bodhi.yaml`
 
 ```yaml
-version: "0.1.0"
+version: "0.1.1"
 project:
   name: "music-store"
   description: "Online music store backend"
@@ -1050,7 +1050,7 @@ For distributed projects, `bodhi.yaml` includes a `distributed` block declaring 
 larger system:
 
 ```yaml
-version: "0.1.0"
+version: "0.1.1"
 project:
   name: "order-service"
   description: "Core order service"
@@ -1274,7 +1274,7 @@ Which DSL data enables which AI agent capabilities:
 `bodhi.yaml` contains the `version` field to identify the DSL schema version:
 
 ```yaml
-version: "0.1.0"
+version: "0.1.1"
 ```
 
 Version follows semantic versioning:
