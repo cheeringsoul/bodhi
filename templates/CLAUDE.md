@@ -192,7 +192,7 @@ fields:
 
 indexes:
   - name: idx_user_status
-    fields: [user_id, status]
+    fields: [ user_id, status ]
     description: User order list query
 
 relations:

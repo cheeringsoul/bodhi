@@ -2,13 +2,13 @@ Unified Bodhi DSL command. Execute according to the subcommand provided in $ARGU
 
 ## Subcommands
 
-| Subcommand | Description |
-|------------|-------------|
+| Subcommand             | Description                                                |
+|------------------------|------------------------------------------------------------|
 | `design <description>` | Design YAML skeleton for a new feature BEFORE writing code |
-| `init` | Initialize the .bodhi/ directory |
-| `scan <directory>` | Scan source code and add @bodhi.* inline tags |
-| `flows` | Generate .bodhi/flows/*.yaml from existing inline tags |
-| `concepts` | Generate .bodhi/concepts/glossary.yaml |
+| `init`                 | Initialize the .bodhi/ directory                           |
+| `scan <directory>`     | Scan source code and add @bodhi.* inline tags              |
+| `flows`                | Generate .bodhi/flows/*.yaml from existing inline tags     |
+| `concepts`             | Generate .bodhi/concepts/glossary.yaml                     |
 
 Parse $ARGUMENTS to determine which subcommand to execute, then follow the corresponding rules below.
 
@@ -19,13 +19,16 @@ Parse $ARGUMENTS to determine which subcommand to execute, then follow the corre
 Design the YAML skeleton for a new feature BEFORE writing any code. This implements the DSL-First workflow.
 
 The description after `design` is a natural language description of the feature. Examples:
+
 - `design 用户下单后扣库存冻结金额发order_created事件到Kafka`
-- `design Add a payment callback endpoint that receives webhook from payment gateway, updates order status, and notifies user`
+-
+`design Add a payment callback endpoint that receives webhook from payment gateway, updates order status, and notifies user`
 - `design WebSocket endpoint for real-time order status push to mobile clients`
 
 ### Step 1: Analyze the requirement
 
 Read the requirement and identify:
+
 - **Entry points**: What triggers this feature? (HTTP API, gRPC, MQ consumer, WebSocket, scheduler, etc.)
 - **Data writes**: What tables/entities are created or modified?
 - **Data reads**: What existing data is needed?
@@ -55,11 +58,11 @@ entry:
 steps:
   - fn: <ClassName.methodName>
     intent: <what this step does>
-    reads: [...]
-    writes: [...]
-    calls: [...]
-    emits: [...]
-    on_fail: [...]
+    reads: [ ... ]
+    writes: [ ... ]
+    calls: [ ... ]
+    emits: [ ... ]
+    on_fail: [ ... ]
 
   # For cross-service calls, include remote fields:
   - fn: <RemoteService.method>
@@ -68,10 +71,10 @@ steps:
     api: <API identifier>
     flow_ref: <service:flow_name>
     intent: <what this step does>
-    on_fail: [...]
+    on_fail: [ ... ]
 
-entities: [...]
-events: [...]
+entities: [ ... ]
+events: [ ... ]
 ```
 
 #### Entity — `.bodhi/entities/<table>.yaml` (only for NEW tables)
@@ -90,7 +93,7 @@ fields:
     sensitive: true/false         # PII fields
     state_machine: <name>         # if this is a status field
 
-relations: [...]
+relations: [ ... ]
 ```
 
 #### Event — `.bodhi/events/<name>.yaml` (only for NEW events)
@@ -124,13 +127,13 @@ description: <one line>
 inbound_events:
   - name: <event_name>
     description: <what>
-    schema: [...]
+    schema: [ ... ]
     triggers_flow: <flow_name>
 
 outbound_events:
   - name: <event_name>
     description: <what>
-    schema: [...]
+    schema: [ ... ]
     triggered_by:
       - event: <internal_event>
         from: <source>
@@ -173,7 +176,8 @@ states:
 
 #### Service manifest — `.bodhi/services/<name>.yaml`
 
-If the feature adds new APIs or dependencies, update the existing service file. Do NOT regenerate the whole file — only add the new entries under `apis` or `depends_on`.
+If the feature adds new APIs or dependencies, update the existing service file. Do NOT regenerate the whole file — only
+add the new entries under `apis` or `depends_on`.
 
 ### Step 3: Present and confirm
 
@@ -198,11 +202,14 @@ After generating all YAML files:
 
 Initialize the .bodhi/ directory.
 
-1. Read project build files (pom.xml / build.gradle / package.json / go.mod / pyproject.toml) to determine languages and frameworks
+1. Read project build files (pom.xml / build.gradle / package.json / go.mod / pyproject.toml) to determine languages and
+   frameworks
 2. Create `.bodhi/bodhi.yaml` with project name, languages, and frameworks
 3. Scan ORM models / database migrations / DDL files, create `.bodhi/entities/<table>.yaml` for each table
-4. Scan status enums (e.g., OrderStatus, PaymentState), create `.bodhi/states/<name>.yaml` for entities with state transitions
-5. Prioritize core business tables (most foreign key references, most code references) — no need to cover all tables at once
+4. Scan status enums (e.g., OrderStatus, PaymentState), create `.bodhi/states/<name>.yaml` for entities with state
+   transitions
+5. Prioritize core business tables (most foreign key references, most code references) — no need to cover all tables at
+   once
 
 ---
 
@@ -210,14 +217,15 @@ Initialize the .bodhi/ directory.
 
 Scan source code in the given directory and add @bodhi.* inline tags.
 
-1. Find all public methods/functions in source files under that directory (skip getters/setters/toString/constructors/test code)
+1. Find all public methods/functions in source files under that directory (skip
+   getters/setters/toString/constructors/test code)
 2. List the methods to be processed first, wait for user confirmation before modifying
 3. Following the Bodhi DSL rules in CLAUDE.md, add @bodhi.* tags to each method's doc comment:
-   - Must add: `@bodhi.intent` + `@bodhi.reads` + `@bodhi.writes`
-   - Add `@bodhi.calls` if there are key calls (use `via` for remote calls)
-   - Add `@bodhi.emits` if events are published
-   - Add `@bodhi.consumes` if events are consumed
-   - Add `@bodhi.on_fail` if there is error handling
+    - Must add: `@bodhi.intent` + `@bodhi.reads` + `@bodhi.writes`
+    - Add `@bodhi.calls` if there are key calls (use `via` for remote calls)
+    - Add `@bodhi.emits` if events are published
+    - Add `@bodhi.consumes` if events are consumed
+    - Add `@bodhi.on_fail` if there is error handling
 4. If `.bodhi/entities/` already exists, cross-reference field names to ensure reads/writes tags are accurate
 
 ---

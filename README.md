@@ -20,9 +20,12 @@ reasoning. Not documentation for humans to read and forget, but structured intel
 
 ## Best For
 
-Bodhi is designed for **AI-first projects** — codebases where AI writes the code from scratch. In this workflow, Claude generates code and DSL annotations simultaneously, keeping semantics accurate and complete from day one.
+Bodhi is designed for **AI-first projects** — codebases where AI writes the code from scratch. In this workflow, Claude
+generates code and DSL annotations simultaneously, keeping semantics accurate and complete from day one.
 
-For **existing / legacy projects**, you can use `/bodhi scan` to retrofit annotations, but coverage and accuracy will depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance hierarchies are harder for AI to annotate reliably. Treat scan results as a starting point that needs human review.
+For **existing / legacy projects**, you can use `/bodhi scan` to retrofit annotations, but coverage and accuracy will
+depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance hierarchies are
+harder for AI to annotate reliably. Treat scan results as a starting point that needs human review.
 
 ## Best Practices: How to Work with AI + Bodhi
 
@@ -48,7 +51,9 @@ Bodhi's design-first workflow works best when you **tell AI the whole picture fi
    is insufficient, circuit-break on payment timeout."
 ```
 
-When AI sees the full picture, it can design the complete YAML skeleton first — flows, entities, events, cross-service dependencies, error handling — and then implement every function in one coherent pass. When it only sees one piece at a time, each addition is a patch, and the skeleton is either incomplete or never created.
+When AI sees the full picture, it can design the complete YAML skeleton first — flows, entities, events, cross-service
+dependencies, error handling — and then implement every function in one coherent pass. When it only sees one piece at a
+time, each addition is a patch, and the skeleton is either incomplete or never created.
 
 ### Recommended workflow
 
@@ -64,9 +69,12 @@ Step 2 → "Looks good, proceed to implement"
 Step 3 → Review the code as usual
 ```
 
-You don't need to write a formal PRD. A few sentences describing the business intent, key operations, external dependencies, and error scenarios is enough. The AI will ask if anything is ambiguous.
+You don't need to write a formal PRD. A few sentences describing the business intent, key operations, external
+dependencies, and error scenarios is enough. The AI will ask if anything is ambiguous.
 
-**Even without `/bodhi design`**, describing the feature in full triggers the same workflow automatically — Claude will produce the skeleton and ask for confirmation before writing code. But the explicit command makes the separation between "design" and "implement" clearer and gives you a natural review checkpoint.
+**Even without `/bodhi design`**, describing the feature in full triggers the same workflow automatically — Claude will
+produce the skeleton and ask for confirmation before writing code. But the explicit command makes the separation
+between "design" and "implement" clearer and gives you a natural review checkpoint.
 
 ## Why Bodhi
 
@@ -156,7 +164,10 @@ cp bodhi/templates/commands/bodhi.md /path/to/your-project/.claude/commands/
 /bodhi concepts                                 # Generate glossary
 ```
 
-**`/bodhi design` is the recommended way to start a new feature.** Describe what you want in natural language, and Claude will produce the complete YAML skeleton (flows, entities, events, channels, topology) for your review before writing any code. Even if you skip `/bodhi design` and describe the feature directly, Claude will automatically run the design-first workflow — but the explicit command makes the intent clearer.
+**`/bodhi design` is the recommended way to start a new feature.** Describe what you want in natural language, and
+Claude will produce the complete YAML skeleton (flows, entities, events, channels, topology) for your review before
+writing any code. Even if you skip `/bodhi design` and describe the feature directly, Claude will automatically run the
+design-first workflow — but the explicit command makes the intent clearer.
 
 ### 3. Validate in CI (optional)
 
@@ -187,7 +198,10 @@ bodhi impact-pr [path] --base main --head dev # Analyse a specific range
 git diff main...HEAD | bodhi impact-pr [path] # Pipe diff via stdin
 ```
 
-Traces changed functions through the knowledge graph and outputs a Markdown impact report: affected flows, data reads/writes, event impacts, cross-service dependencies, and risks. Designed to be posted as a PR comment — see [`bodhi_app/templates/ci/bodhi-impact-pr.yml`](bodhi_app/templates/ci/bodhi-impact-pr.yml) for a ready-to-use GitHub Actions workflow.
+Traces changed functions through the knowledge graph and outputs a Markdown impact report: affected flows, data
+reads/writes, event impacts, cross-service dependencies, and risks. Designed to be posted as a PR comment — see [
+`bodhi_app/templates/ci/bodhi-impact-pr.yml`](bodhi_app/templates/ci/bodhi-impact-pr.yml) for a ready-to-use GitHub
+Actions workflow.
 
 ### Visualization
 
@@ -201,9 +215,13 @@ bodhi graph [path] -o diagram.html # Render to HTML (zero dependencies, open in 
 bodhi graph [path] -o diagram.svg  # Render to SVG/PNG/PDF (requires mmdc)
 ```
 
-`bodhi show flow` renders a color-coded call chain in the terminal — each step shows function name, intent, reads/writes, emits, on_fail, and cross-service calls. `bodhi show stats` displays a coverage dashboard with colored progress bars for each tag type and hints about missing annotations.
+`bodhi show flow` renders a color-coded call chain in the terminal — each step shows function name, intent,
+reads/writes, emits, on_fail, and cross-service calls. `bodhi show stats` displays a coverage dashboard with colored
+progress bars for each tag type and hints about missing annotations.
 
-`bodhi graph` generates Mermaid diagrams with color-coded nodes: green for entry points, blue for functions, orange for database tables, purple for events, red dashed for remote calls. Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli): `npm install -g @mermaid-js/mermaid-cli`
+`bodhi graph` generates Mermaid diagrams with color-coded nodes: green for entry points, blue for functions, orange for
+database tables, purple for events, red dashed for remote calls. Rendering to SVG/PNG
+requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli): `npm install -g @mermaid-js/mermaid-cli`
 
 ### MCP Server
 
@@ -219,7 +237,10 @@ Configure in Claude Code (`~/.claude/settings.json` or project `.claude/settings
   "mcpServers": {
     "bodhi": {
       "command": "bodhi",
-      "args": ["serve", "/path/to/your-project"]
+      "args": [
+        "serve",
+        "/path/to/your-project"
+      ]
     }
   }
 }
@@ -227,17 +248,17 @@ Configure in Claude Code (`~/.claude/settings.json` or project `.claude/settings
 
 Available MCP tools:
 
-| Tool              | What It Does                                      | Example Question                              |
-|-------------------|---------------------------------------------------|-----------------------------------------------|
-| `query_flow`      | Return a complete request-to-response call chain  | "How does the create order API work?"         |
-| `trace_entity`    | Find all functions that read/write a given entity | "What touches the `orders` table?"            |
-| `find_consumers`  | Find all consumers of a given event               | "What happens when `order_created` fires?"    |
-| `impact_analysis` | Trace the blast radius of a change                | "What breaks if I change `OrderService.create`?" |
-| `query_state`     | Return state machine transitions                  | "What are the valid transitions from PAID?"   |
-| `service_deps`    | Return upstream/downstream service dependencies   | "What does order-service depend on?"          |
-| `query_channel`   | Return a bidirectional channel definition          | "What events does the order WebSocket handle?" |
-| `query_topology`  | Return a cross-service event chain                | "How does the order fulfillment event flow work?" |
-| `list_*`          | List available flows, entities, events, services, state machines, channels, topologies | "What flows exist in this project?" |
+| Tool              | What It Does                                                                           | Example Question                                  |
+|-------------------|----------------------------------------------------------------------------------------|---------------------------------------------------|
+| `query_flow`      | Return a complete request-to-response call chain                                       | "How does the create order API work?"             |
+| `trace_entity`    | Find all functions that read/write a given entity                                      | "What touches the `orders` table?"                |
+| `find_consumers`  | Find all consumers of a given event                                                    | "What happens when `order_created` fires?"        |
+| `impact_analysis` | Trace the blast radius of a change                                                     | "What breaks if I change `OrderService.create`?"  |
+| `query_state`     | Return state machine transitions                                                       | "What are the valid transitions from PAID?"       |
+| `service_deps`    | Return upstream/downstream service dependencies                                        | "What does order-service depend on?"              |
+| `query_channel`   | Return a bidirectional channel definition                                              | "What events does the order WebSocket handle?"    |
+| `query_topology`  | Return a cross-service event chain                                                     | "How does the order fulfillment event flow work?" |
+| `list_*`          | List available flows, entities, events, services, state machines, channels, topologies | "What flows exist in this project?"               |
 
 ### Workspace (Multi-Service)
 
@@ -250,7 +271,8 @@ bodhi workspace-validate [path]    # Validate cross-service consistency (event s
 Ready-to-use GitHub Actions workflows are in [`bodhi_app/templates/ci/`](bodhi_app/templates/ci/):
 
 - **[`bodhi-validate.yml`](bodhi_app/templates/ci/bodhi-validate.yml)** — validates DSL completeness on every PR
-- **[`bodhi-impact-pr.yml`](bodhi_app/templates/ci/bodhi-impact-pr.yml)** — posts a Bodhi impact analysis comment on every PR (uses `bodhi impact-pr`)
+- **[`bodhi-impact-pr.yml`](bodhi_app/templates/ci/bodhi-impact-pr.yml)** — posts a Bodhi impact analysis comment on
+  every PR (uses `bodhi impact-pr`)
 
 Copy the one you need into your project's `.github/workflows/` directory.
 
@@ -258,11 +280,13 @@ Copy the one you need into your project's `.github/workflows/` directory.
 cp bodhi/bodhi_app/templates/ci/bodhi-impact-pr.yml /path/to/your-project/.github/workflows/
 ```
 
-`bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or coverage tracking.
+`bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or
+coverage tracking.
 
 ## AI-Friendly Code Style
 
-Bodhi doesn't just annotate code — it promotes a coding style that is **statically traceable from source text**. If AI cannot determine the execution path by reading the source, the code is not AI-friendly.
+Bodhi doesn't just annotate code — it promotes a coding style that is **statically traceable from source text**. If AI
+cannot determine the execution path by reading the source, the code is not AI-friendly.
 
 **Core principles:**
 
@@ -278,7 +302,8 @@ Bodhi doesn't just annotate code — it promotes a coding style that is **static
 - Extract interface for a single implementation → bad (adds indirection for no benefit)
 - Replace `if`/`switch` with polymorphic dispatch → bad (hides routing)
 
-Per-language rules for Java, Go, Python, Kotlin, TypeScript, Rust, C#, C, and C++ are in [`templates/CLAUDE.md`](templates/CLAUDE.md).
+Per-language rules for Java, Go, Python, Kotlin, TypeScript, Rust, C#, C, and C++ are in [
+`templates/CLAUDE.md`](templates/CLAUDE.md).
 
 ## Tag Reference
 
@@ -333,19 +358,22 @@ bodhi/
 
 ### Flow Visualization (`bodhi show flow`)
 
-Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling, and cross-service calls.
+Render a color-coded call chain in the terminal — each step shows function name, intent, data access, error handling,
+and cross-service calls.
 
 ![bodhi show flow](images/flow.png)
 
 ### Coverage Dashboard (`bodhi show stats`)
 
-See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable hints about missing annotations.
+See how well your codebase is annotated at a glance — progress bars per tag type, Layer 2 asset counts, and actionable
+hints about missing annotations.
 
 ![bodhi show stats](images/status.png)
 
 ### Flow Graph (`bodhi graph`)
 
-Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables, events, and remote calls. Tables sharing the same datasource are grouped together.
+Generate visual call graphs from flow definitions — color-coded nodes for entry points, functions, database tables,
+events, and remote calls. Tables sharing the same datasource are grouped together.
 
 ![bodhi graph](images/graph.png)
 
@@ -355,7 +383,9 @@ See [bodhi-dsl-specification.md](bodhi_engine/docs/bodhi-dsl-specification.md) f
 
 ## Architecture & Vision
 
-See [architecture-and-vision.md](bodhi_engine/docs/architecture-and-vision.md) for the target architecture (MCP server), future data sources (DB, logs, metrics, traces), and long-term vision (cross-repo tracing, intent-to-code generation, living architecture diagrams).
+See [architecture-and-vision.md](bodhi_engine/docs/architecture-and-vision.md) for the target architecture (MCP server),
+future data sources (DB, logs, metrics, traces), and long-term vision (cross-repo tracing, intent-to-code generation,
+living architecture diagrams).
 
 ## License
 
