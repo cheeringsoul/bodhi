@@ -237,3 +237,5 @@ def diagnose_log(log_text: str) -> str:
     kb = _get_kb()
     result = diagnose_from_log(kb, log_text)
     return _json(result)
+
+
