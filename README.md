@@ -22,7 +22,7 @@ reasoning. Not documentation for humans to read and forget, but structured intel
 
 Bodhi is designed for **AI-first projects** — codebases where AI writes the code from scratch. In this workflow, Claude generates code and DSL annotations simultaneously, keeping semantics accurate and complete from day one.
 
-For **existing / legacy projects**, you can use `bodhi-scan` to retrofit annotations, but coverage and accuracy will depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance hierarchies are harder for AI to annotate reliably. Treat `bodhi-scan` results as a starting point that needs human review.
+For **existing / legacy projects**, you can use `/bodhi scan` to retrofit annotations, but coverage and accuracy will depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance hierarchies are harder for AI to annotate reliably. Treat scan results as a starting point that needs human review.
 
 ## Best Practices: How to Work with AI + Bodhi
 
@@ -53,7 +53,7 @@ When AI sees the full picture, it can design the complete YAML skeleton first �
 ### Recommended workflow
 
 ```
-Step 1 → /bodhi-design <describe the full feature>
+Step 1 → /bodhi design <describe the full feature>
             AI produces YAML skeleton only, no code
             You review: are the flows, entities, events correct?
 
@@ -66,7 +66,7 @@ Step 3 → Review the code as usual
 
 You don't need to write a formal PRD. A few sentences describing the business intent, key operations, external dependencies, and error scenarios is enough. The AI will ask if anything is ambiguous.
 
-**Even without `/bodhi-design`**, describing the feature in full triggers the same workflow automatically — Claude will produce the skeleton and ask for confirmation before writing code. But the explicit command makes the separation between "design" and "implement" clearer and gives you a natural review checkpoint.
+**Even without `/bodhi design`**, describing the feature in full triggers the same workflow automatically — Claude will produce the skeleton and ask for confirmation before writing code. But the explicit command makes the separation between "design" and "implement" clearer and gives you a natural review checkpoint.
 
 ## Why Bodhi
 
@@ -145,19 +145,18 @@ Copy the slash command into your project, then use it in Claude Code:
 
 ```bash
 mkdir -p /path/to/your-project/.claude/commands
-cp bodhi/templates/commands/bodhi-scan.md /path/to/your-project/.claude/commands/
-cp bodhi/templates/commands/bodhi-design.md /path/to/your-project/.claude/commands/
+cp bodhi/templates/commands/bodhi.md /path/to/your-project/.claude/commands/
 ```
 
 ```
-/bodhi-design <feature description>             # Design YAML skeleton before coding (recommended)
-/bodhi-scan init                                # Initialize .bodhi/ directory
-/bodhi-scan src/main/java/com/example/order/    # Add inline tags per directory
-/bodhi-scan flows                               # Generate flow files
-/bodhi-scan concepts                            # Generate glossary
+/bodhi design <feature description>             # Design YAML skeleton before coding (recommended)
+/bodhi init                                     # Initialize .bodhi/ directory
+/bodhi scan src/main/java/com/example/order/    # Add inline tags per directory
+/bodhi flows                                    # Generate flow files
+/bodhi concepts                                 # Generate glossary
 ```
 
-**`/bodhi-design` is the recommended way to start a new feature.** Describe what you want in natural language, and Claude will produce the complete YAML skeleton (flows, entities, events, channels, topology) for your review before writing any code. Even if you skip `/bodhi-design` and describe the feature directly, Claude will automatically run the design-first workflow — but the explicit command makes the intent clearer.
+**`/bodhi design` is the recommended way to start a new feature.** Describe what you want in natural language, and Claude will produce the complete YAML skeleton (flows, entities, events, channels, topology) for your review before writing any code. Even if you skip `/bodhi design` and describe the feature directly, Claude will automatically run the design-first workflow — but the explicit command makes the intent clearer.
 
 ### 3. Validate in CI (optional)
 
@@ -315,8 +314,7 @@ bodhi/
 ├── templates/
 │   ├── CLAUDE.md                  # Put in your project → Claude writes DSL with code
 │   └── commands/
-│       ├── bodhi-scan.md          # /bodhi-scan command for existing code
-│       └── bodhi-design.md        # /bodhi-design command for design-first workflow
+│       └── bodhi.md               # /bodhi command (design, init, scan, flows, concepts)
 ├── bodhi_engine/                  # Core engine — parser, knowledge graph, validator
 │   ├── parser/                    # Parses @bodhi.* tags and .bodhi/*.yaml
 │   ├── validator/                 # Checks DSL completeness and consistency

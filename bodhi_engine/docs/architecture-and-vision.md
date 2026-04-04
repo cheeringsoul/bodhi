@@ -65,7 +65,10 @@ Bodhi runs as a local MCP (Model Context Protocol) server that AI coding assista
   "mcpServers": {
     "bodhi": {
       "command": "bodhi",
-      "args": ["serve", "/path/to/your-project"]
+      "args": [
+        "serve",
+        "/path/to/your-project"
+      ]
     }
   }
 }
@@ -79,17 +82,17 @@ multiple service repos and validates cross-service consistency.
 
 ### What AI Agents Can Do With It
 
-| Tool              | What It Does                                      | Example Query                                 |
-|-------------------|---------------------------------------------------|-----------------------------------------------|
-| `query_flow`      | Return a complete request-to-response call chain  | "How does the create order API work?"         |
-| `trace_entity`    | Find all functions that read/write a given entity | "What touches the `orders` table?"            |
-| `find_consumers`  | Find all consumers of a given event               | "What happens when `order_created` fires?"    |
-| `impact_analysis` | Trace the blast radius of a change                | "What breaks if I change the `status` field?" |
-| `query_state`     | Return state machine transitions                  | "What are the valid transitions from PAID?"   |
-| `service_deps`    | Return upstream/downstream service dependencies   | "What does order-service depend on?"          |
-| `query_channel`   | Return a bidirectional channel definition          | "What events does the order WebSocket handle?" |
-| `query_topology`  | Return a cross-service event chain                | "How does the order fulfillment flow work?"   |
-| `diagnose_log`    | Match log snippets against pattern registry       | "What function produced this error log?"      |
+| Tool              | What It Does                                      | Example Query                                  |
+|-------------------|---------------------------------------------------|------------------------------------------------|
+| `query_flow`      | Return a complete request-to-response call chain  | "How does the create order API work?"          |
+| `trace_entity`    | Find all functions that read/write a given entity | "What touches the `orders` table?"             |
+| `find_consumers`  | Find all consumers of a given event               | "What happens when `order_created` fires?"     |
+| `impact_analysis` | Trace the blast radius of a change                | "What breaks if I change the `status` field?"  |
+| `query_state`     | Return state machine transitions                  | "What are the valid transitions from PAID?"    |
+| `service_deps`    | Return upstream/downstream service dependencies   | "What does order-service depend on?"           |
+| `query_channel`   | Return a bidirectional channel definition         | "What events does the order WebSocket handle?" |
+| `query_topology`  | Return a cross-service event chain                | "How does the order fulfillment flow work?"    |
+| `diagnose_log`    | Match log snippets against pattern registry       | "What function produced this error log?"       |
 
 The key insight: DSL tells the AI **where to look and what to ask**, turning open-ended questions into targeted queries.
 
@@ -132,16 +135,16 @@ giving AI agents a unified way to query both structure and runtime data.
 
 ### Data Source Roadmap
 
-| Phase   | Data Source              | Status | What It Enables                                                               |
-|---------|--------------------------|--------|-------------------------------------------------------------------------------|
-| Phase 1 | DSL (inline tags + YAML) | Done   | Flow tracing, impact analysis, code Q&A, architecture queries                 |
+| Phase   | Data Source              | Status | What It Enables                                                                       |
+|---------|--------------------------|--------|---------------------------------------------------------------------------------------|
+| Phase 1 | DSL (inline tags + YAML) | Done   | Flow tracing, impact analysis, code Q&A, architecture queries                         |
 | Phase 1 | Log pattern matching     | Done   | Match log snippets against `@bodhi.log.*` patterns, extract variables, trace to flows |
-| Phase 1 | Terminal visualization   | Done   | `show flow`, `show stats`, `graph` with HTML/Mermaid output                   |
-| Phase 1 | Multi-service workspace  | Done   | Federated MCP, cross-service validation, unified knowledge graph              |
-| Phase 2 | Database (read-only)     |        | Query actual data to verify state, debug specific records                     |
-| Phase 3 | Logs (live search)       |        | Search log files/Elasticsearch/Loki by `@bodhi.log.*` patterns in real time   |
-| Phase 4 | Metrics / APM            |        | Query latency, error rates, throughput — tied to `@bodhi.metric` thresholds   |
-| Phase 5 | Distributed traces       |        | Correlate runtime traces with static flow definitions                         |
+| Phase 1 | Terminal visualization   | Done   | `show flow`, `show stats`, `graph` with HTML/Mermaid output                           |
+| Phase 1 | Multi-service workspace  | Done   | Federated MCP, cross-service validation, unified knowledge graph                      |
+| Phase 2 | Database (read-only)     |        | Query actual data to verify state, debug specific records                             |
+| Phase 3 | Logs (live search)       |        | Search log files/Elasticsearch/Loki by `@bodhi.log.*` patterns in real time           |
+| Phase 4 | Metrics / APM            |        | Query latency, error rates, throughput — tied to `@bodhi.metric` thresholds           |
+| Phase 5 | Distributed traces       |        | Correlate runtime traces with static flow definitions                                 |
 
 ### Example: AI-Powered Debug Session
 
@@ -205,11 +208,13 @@ Define rules and enforce them in CI:
 Auto-generate from DSL data — always in sync with code because the data source *is* the code.
 
 Already implemented:
+
 - Flow call graphs from `flows/` (`bodhi graph`, Mermaid/HTML output, DB nodes grouped by datasource)
 - Terminal flow visualization (`bodhi show flow`, colored call chain)
 - Coverage dashboards (`bodhi show stats`, per-tag progress bars)
 
 Future:
+
 - C4 models from `services/` + `flows/`
 - Sequence diagrams from `flows/` steps
 - ER diagrams from `entities/` + relations

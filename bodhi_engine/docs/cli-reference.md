@@ -1,6 +1,7 @@
 # Bodhi Engine — CLI Reference
 
-bodhi_engine provides the core DSL analysis toolkit: parsing, validation, visualization, and scaffolding. These commands work on inline `@bodhi.*` tags and `.bodhi/` YAML files directly — no knowledge graph or runtime intelligence required.
+bodhi_engine provides the core DSL analysis toolkit: parsing, validation, visualization, and scaffolding. These commands
+work on inline `@bodhi.*` tags and `.bodhi/` YAML files directly — no knowledge graph or runtime intelligence required.
 
 ## Commands
 
@@ -11,6 +12,7 @@ All commands accept `--exclude DIR1 DIR2` to skip directories during scanning.
 Check DSL completeness and consistency. Exits with code 1 on errors — suitable as a CI gate.
 
 Checks include:
+
 - Functions with `@bodhi.reads`/`@bodhi.writes` but no `@bodhi.intent` (error)
 - Dangling `@bodhi.calls` references (warning)
 - Missing entity definitions in `.bodhi/entities/` (warning)
@@ -25,7 +27,8 @@ bodhi validate /path/to/project --exclude frontend admin-ui
 
 ### `bodhi check [path]`
 
-Check consistency between inline tags and `.bodhi/` YAML files. Compares what the inline tags declare (reads, writes, calls, emits) against what the YAML flows, events, and entities describe.
+Check consistency between inline tags and `.bodhi/` YAML files. Compares what the inline tags declare (reads, writes,
+calls, emits) against what the YAML flows, events, and entities describe.
 
 ```bash
 bodhi check .
@@ -33,13 +36,15 @@ bodhi check .
 
 ### `bodhi stats [path]`
 
-Output coverage statistics as JSON. Reports how many functions have each tag type and counts of Layer 2 assets (flows, entities, events, etc.).
+Output coverage statistics as JSON. Reports how many functions have each tag type and counts of Layer 2 assets (flows,
+entities, events, etc.).
 
 ```bash
 bodhi stats .
 ```
 
 Example output:
+
 ```json
 {
   "functions_with_bodhi_tags": 42,
@@ -54,7 +59,8 @@ Example output:
 
 ### `bodhi derive [path]`
 
-Scaffold `.bodhi/` YAML files from inline tags (cold-start). Traces `@bodhi.calls` chains to infer flows, collects `@bodhi.emits`/`@bodhi.consumes` to infer events, and detects remote calls to infer service dependencies.
+Scaffold `.bodhi/` YAML files from inline tags (cold-start). Traces `@bodhi.calls` chains to infer flows, collects
+`@bodhi.emits`/`@bodhi.consumes` to infer events, and detects remote calls to infer service dependencies.
 
 Use this when retrofitting an existing codebase that already has inline tags but no YAML files yet.
 
@@ -64,7 +70,8 @@ bodhi derive .
 
 ### `bodhi show flow [name]`
 
-Visualize a flow's call chain as a color-coded terminal display. Each step shows function name, intent, reads/writes, emits, on_fail, and cross-service calls.
+Visualize a flow's call chain as a color-coded terminal display. Each step shows function name, intent, reads/writes,
+emits, on_fail, and cross-service calls.
 
 ```bash
 bodhi show -p /path/to/project flow              # List all flows
@@ -81,7 +88,9 @@ bodhi show -p /path/to/project stats
 
 ### `bodhi graph [path]`
 
-Generate Mermaid diagrams from `.bodhi/flows/` definitions. Color-coded nodes: green for entry points, blue for functions, orange for database tables, purple for events, red dashed for remote calls. Tables sharing the same datasource are grouped into subgraphs.
+Generate Mermaid diagrams from `.bodhi/flows/` definitions. Color-coded nodes: green for entry points, blue for
+functions, orange for database tables, purple for events, red dashed for remote calls. Tables sharing the same
+datasource are grouped into subgraphs.
 
 ```bash
 bodhi graph .                              # All flows to stdout
@@ -90,11 +99,13 @@ bodhi graph . -o diagram.html              # Render to HTML (zero dependencies)
 bodhi graph . -o diagram.svg               # Render to SVG (requires mmdc)
 ```
 
-Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli): `npm install -g @mermaid-js/mermaid-cli`
+Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli):
+`npm install -g @mermaid-js/mermaid-cli`
 
 ### `bodhi workspace-validate [path]`
 
-Validate cross-service consistency in a multi-service workspace. Scans all subdirectories for `.bodhi/` folders, merges their metadata, and checks for:
+Validate cross-service consistency in a multi-service workspace. Scans all subdirectories for `.bodhi/` folders, merges
+their metadata, and checks for:
 
 - Event schema mismatches between producer and consumer
 - Broken `flow_ref` references across services
@@ -124,6 +135,8 @@ bodhi_engine/
 
 ## Separation from bodhi_app
 
-bodhi_engine is the foundation layer. It parses, validates, and visualizes Bodhi DSL data. It has no dependency on bodhi_app.
+bodhi_engine is the foundation layer. It parses, validates, and visualizes Bodhi DSL data. It has no dependency on
+bodhi_app.
 
-bodhi_app builds on top of the engine to provide higher-level capabilities: MCP servers, log diagnosis, PR impact analysis, and the unified CLI entry point that assembles all commands.
+bodhi_app builds on top of the engine to provide higher-level capabilities: MCP servers, log diagnosis, PR impact
+analysis, and the unified CLI entry point that assembles all commands.

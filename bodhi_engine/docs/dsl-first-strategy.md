@@ -2,7 +2,8 @@ ban# DSL-First Strategy: Preventing AI from Forgetting DSL
 
 ## Problem Statement
 
-When using Bodhi DSL in new projects with AI-assisted code generation (Claude Code / CLAUDE.md driven), the AI frequently:
+When using Bodhi DSL in new projects with AI-assisted code generation (Claude Code / CLAUDE.md driven), the AI
+frequently:
 
 - Forgets to write `@bodhi.*` inline tags on new methods
 - Omits critical tags like `@bodhi.reads`, `@bodhi.writes`, `@bodhi.calls` even when `@bodhi.intent` is present
@@ -13,7 +14,8 @@ Root causes:
 
 1. **Context Saturation** — as conversations grow longer, the AI's attention drifts away from DSL rules
 2. **Task Decomposition** — large tasks cause the AI to optimize for "getting it done" and cut corners on metadata
-3. **Soft constraints only** — CLAUDE.md rules are probabilistic, not deterministic; the AI can and will ignore them under pressure
+3. **Soft constraints only** — CLAUDE.md rules are probabilistic, not deterministic; the AI can and will ignore them
+   under pressure
 
 ## Solution: Three-Layer Defense
 
@@ -42,15 +44,18 @@ For new features or significant changes, the AI must design the flow BEFORE writ
 6. Validate: hook checks run automatically after each file edit
 ```
 
-**Why this works:** The flow YAML acts as a contract. The AI commits to the architecture before writing code, so it can't "forget" components — they're already defined in the flow.
+**Why this works:** The flow YAML acts as a contract. The AI commits to the architecture before writing code, so it
+can't "forget" components — they're already defined in the flow.
 
 **When to use DSL-first:**
+
 - New feature implementation
 - New API endpoint
 - New event-driven workflow
 - New service integration
 
 **When NOT to use DSL-first (just co-generate):**
+
 - Bug fixes
 - Refactoring without behavior change
 - Adding a field to an existing method
@@ -60,7 +65,8 @@ For new features or significant changes, the AI must design the flow BEFORE writ
 
 During implementation, inline tags are written simultaneously with code — not before, not after.
 
-**The rule:** Every method gets its `@bodhi.*` tags in the same edit that creates or modifies the method body. No "I'll add tags later" — there is no later.
+**The rule:** Every method gets its `@bodhi.*` tags in the same edit that creates or modifies the method body. No "I'll
+add tags later" — there is no later.
 
 **Complete vs Incomplete example:**
 
@@ -80,7 +86,8 @@ public OrderResponse create(CreateOrderRequest req) {
 }
 ```
 
-Problems: has `@bodhi.intent` but missing reads, writes, calls, emits, on_fail. The deriver gets almost nothing useful from this.
+Problems: has `@bodhi.intent` but missing reads, writes, calls, emits, on_fail. The deriver gets almost nothing useful
+from this.
 
 ✅ **Complete (what we require):**
 
@@ -111,22 +118,25 @@ public OrderResponse create(CreateOrderRequest req) {
 
 ### Layer C: Hook Validation (Hard Gate)
 
-The `bodhi-check.sh` PostToolUse hook is the last line of defense. It runs after every Edit/Write and blocks the AI if DSL is incomplete.
+The `bodhi-check.sh` PostToolUse hook is the last line of defense. It runs after every Edit/Write and blocks the AI if
+DSL is incomplete.
 
 **Current checks:**
+
 - Missing `@bodhi.intent` on public methods (Java, Python, TS/JS, Go, Kotlin)
 
 **Enhanced checks (to be added):**
 
-| Check | Trigger | What it catches |
-|-------|---------|-----------------|
-| Missing `@bodhi.writes` | Method body contains DB write patterns (`save`, `insert`, `update`, `delete`, `repository.`) | AI wrote DB code but forgot `@bodhi.writes` |
-| Missing `@bodhi.calls` | Method body contains remote call patterns (`restTemplate`, `httpClient`, `fetch`, `grpc`) | AI made a remote call but forgot `@bodhi.calls` |
-| Missing `@bodhi.emits` | Method body contains event publish patterns (`kafkaTemplate`, `emit`, `publish`, `send`) | AI published an event but forgot `@bodhi.emits` |
-| Missing entity YAML | New ORM model/entity class created | AI created a DB model but forgot `.bodhi/entities/` |
-| Tag-code consistency | `@bodhi.writes` says INSERT but code does UPDATE | Tags don't match implementation |
+| Check                   | Trigger                                                                                      | What it catches                                     |
+|-------------------------|----------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| Missing `@bodhi.writes` | Method body contains DB write patterns (`save`, `insert`, `update`, `delete`, `repository.`) | AI wrote DB code but forgot `@bodhi.writes`         |
+| Missing `@bodhi.calls`  | Method body contains remote call patterns (`restTemplate`, `httpClient`, `fetch`, `grpc`)    | AI made a remote call but forgot `@bodhi.calls`     |
+| Missing `@bodhi.emits`  | Method body contains event publish patterns (`kafkaTemplate`, `emit`, `publish`, `send`)     | AI published an event but forgot `@bodhi.emits`     |
+| Missing entity YAML     | New ORM model/entity class created                                                           | AI created a DB model but forgot `.bodhi/entities/` |
+| Tag-code consistency    | `@bodhi.writes` says INSERT but code does UPDATE                                             | Tags don't match implementation                     |
 
-**Why hooks are the most important layer:** They are deterministic. The AI cannot proceed past a hook failure. Unlike CLAUDE.md rules (which are probabilistic), hooks provide a hard gate that guarantees compliance.
+**Why hooks are the most important layer:** They are deterministic. The AI cannot proceed past a hook failure. Unlike
+CLAUDE.md rules (which are probabilistic), hooks provide a hard gate that guarantees compliance.
 
 ## CLAUDE.md Improvements
 
@@ -150,7 +160,8 @@ Do NOT jump straight to writing code. The flow YAML is your contract.
 
 ### 2. Add Complete vs Incomplete Examples
 
-Put the ❌/✅ comparison directly in CLAUDE.md. Pattern matching is more effective than rules for AI — seeing what "complete" looks like is worth more than ten bullet points saying "don't forget X".
+Put the ❌/✅ comparison directly in CLAUDE.md. Pattern matching is more effective than rules for AI — seeing what "
+complete" looks like is worth more than ten bullet points saying "don't forget X".
 
 ### 3. Add Self-Check Trigger
 
@@ -158,6 +169,7 @@ Put the ❌/✅ comparison directly in CLAUDE.md. Pattern matching is more effec
 ## Before Moving to Next Method
 
 Ask yourself these 6 questions:
+
 1. Reads external input? → @bodhi.reads
 2. Writes to storage? → @bodhi.writes
 3. Calls another service/method? → @bodhi.calls
@@ -170,7 +182,9 @@ If you answer "yes" to any question but the tag is missing, add it NOW.
 
 ### 4. Keep CLAUDE.md Focused
 
-Do NOT split DSL rules into a separate file. CLAUDE.md is auto-loaded into context; external files require the AI to actively read them, which is itself a step that can be forgotten. Keep all critical rules in CLAUDE.md, but keep it concise — under 300 lines.
+Do NOT split DSL rules into a separate file. CLAUDE.md is auto-loaded into context; external files require the AI to
+actively read them, which is itself a step that can be forgotten. Keep all critical rules in CLAUDE.md, but keep it
+concise — under 300 lines.
 
 ## Implementation Checklist
 
@@ -181,11 +195,12 @@ Do NOT split DSL rules into a separate file. CLAUDE.md is auto-loaded into conte
 
 ## Effectiveness Expectations
 
-| Defense Layer | Reliability | What it catches |
-|---------------|-------------|-----------------|
-| DSL-First workflow (CLAUDE.md) | ~70-80% | Missing flows, missing architectural thinking |
-| Co-generation rules (CLAUDE.md) | ~60-70% | Missing inline tags (degrades with context length) |
-| Hook validation (bodhi-check.sh) | ~95%+ | Any remaining gaps — hard gate |
-| Combined | ~98%+ | Near-complete DSL coverage |
+| Defense Layer                    | Reliability | What it catches                                    |
+|----------------------------------|-------------|----------------------------------------------------|
+| DSL-First workflow (CLAUDE.md)   | ~70-80%     | Missing flows, missing architectural thinking      |
+| Co-generation rules (CLAUDE.md)  | ~60-70%     | Missing inline tags (degrades with context length) |
+| Hook validation (bodhi-check.sh) | ~95%+       | Any remaining gaps — hard gate                     |
+| Combined                         | ~98%+       | Near-complete DSL coverage                         |
 
-The key insight: no single layer is sufficient. CLAUDE.md rules degrade as context grows. Hooks catch what rules miss. DSL-first design prevents entire categories of omission. Together, they form a reliable system.
+The key insight: no single layer is sufficient. CLAUDE.md rules degrade as context grows. Hooks catch what rules miss.
+DSL-first design prevents entire categories of omission. Together, they form a reliable system.

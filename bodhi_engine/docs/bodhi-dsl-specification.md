@@ -104,15 +104,16 @@ For existing codebases, the reverse path also works: `bodhi derive` scaffolds La
 
 ### How the Two Layers Relate
 
-| Dimension        | Layer 1 (Inline Tags)                | Layer 2 (System Files)                         |
-|------------------|--------------------------------------|------------------------------------------------|
-| Location         | Code doc comments                    | `.bodhi/` YAML files                           |
-| Granularity      | Single function/method               | Cross-function flows, state machines, entities |
+| Dimension        | Layer 1 (Inline Tags)                | Layer 2 (System Files)                                               |
+|------------------|--------------------------------------|----------------------------------------------------------------------|
+| Location         | Code doc comments                    | `.bodhi/` YAML files                                                 |
+| Granularity      | Single function/method               | Cross-function flows, state machines, entities                       |
 | Maintained by    | AI co-generation (written with code) | Manual: entities, concepts. Derived: flows, states, events, services |
-| Change frequency | High (follows code changes)          | Manual files: medium. Derived files: regenerated on demand |
-| Core value       | Answers "what does this function do" | Answers "how does this business work"          |
+| Change frequency | High (follows code changes)          | Manual files: medium. Derived files: regenerated on demand           |
+| Core value       | Answers "what does this function do" | Answers "how does this business work"                                |
 
-> **Key insight**: flows, states, events, and services YAML files are **derived from inline tags** — they are not maintained alongside code. This reduces DSL maintenance cost by ~70% while preserving the same system-level views.
+> **Key insight**: flows, states, events, and services YAML files are **derived from inline tags** — they are not
+> maintained alongside code. This reduces DSL maintenance cost by ~70% while preserving the same system-level views.
 >
 > - `flow` = aggregation of `@bodhi.calls` chains from entry points
 > - `service topology` = aggregation of `@bodhi.calls ... via` across services
@@ -506,6 +507,7 @@ design skeleton, reviewed by the developer, then used to guide code generation. 
 code), they are derived from inline tags by `bodhi derive`.
 
 **Core structure files**:
+
 - `bodhi.yaml` — project metadata + runtime config
 - `flows/*.yaml` — request-to-response call chains
 - `entities/*.yaml` — database entity schemas
@@ -913,7 +915,7 @@ protocol: websocket
 path: /ws/orders
 description: Real-time order status updates
 
-inbound_events:                           # client → server
+inbound_events: # client → server
   - name: subscribe
     description: Client subscribes to order status updates
     schema:
@@ -927,7 +929,7 @@ inbound_events:                           # client → server
       - field: orderId
         type: string
 
-outbound_events:                          # server → client
+outbound_events: # server → client
   - name: order_status_changed
     description: Push order status change to client
     schema:
@@ -1002,11 +1004,11 @@ steps:
       - payment_timeout → circuit_breaker(threshold=5, window=60s) → reject 503
 ```
 
-| Field      | Required | Description                                                        |
-|------------|----------|--------------------------------------------------------------------|
-| `remote`   | No       | Remote service name. Absence means the step runs locally.          |
-| `protocol` | No       | Protocol for the remote call (`http`, `grpc`, etc.)                |
-| `api`      | No       | Remote API identifier (matches the remote service's `apis` entry)  |
+| Field      | Required | Description                                                            |
+|------------|----------|------------------------------------------------------------------------|
+| `remote`   | No       | Remote service name. Absence means the step runs locally.              |
+| `protocol` | No       | Protocol for the remote call (`http`, `grpc`, etc.)                    |
+| `api`      | No       | Remote API identifier (matches the remote service's `apis` entry)      |
 | `flow_ref` | No       | Pointer to the detailed flow in the remote service: `<service>:<flow>` |
 
 ### 5.10 Event Topology — `.bodhi/topology/*.yaml`
@@ -1052,8 +1054,8 @@ version: "0.1.0"
 project:
   name: "order-service"
   description: "Core order service"
-  languages: [java]
-  frameworks: [spring-boot, mybatis, kafka]
+  languages: [ java ]
+  frameworks: [ spring-boot, mybatis, kafka ]
 
 distributed:
   system: "ecommerce-platform"
@@ -1061,11 +1063,11 @@ distributed:
   registry: "git@github.com:org/bodhi-registry.git"
 ```
 
-| Field                  | Required | Description                                           |
-|------------------------|----------|-------------------------------------------------------|
+| Field                  | Required | Description                                              |
+|------------------------|----------|----------------------------------------------------------|
 | `distributed.system`   | Yes      | System name — all services in the same system share this |
-| `distributed.service`  | Yes      | This service's name (must match registry entry)       |
-| `distributed.registry` | No       | Central registry repo URL                             |
+| `distributed.service`  | Yes      | This service's name (must match registry entry)          |
+| `distributed.registry` | No       | Central registry repo URL                                |
 
 ### 5.12 Business Glossary — `.bodhi/concepts/*.yaml`
 
@@ -1181,21 +1183,21 @@ Combined Knowledge Graph
 
 Which DSL data enables which AI agent capabilities:
 
-| Agent Capability                 | DSL Information Used                                       |
-|----------------------------------|------------------------------------------------------------|
-| **Bug Triage**                   | `intent` + `on_fail` + `reads/writes` + `log.*` + `states` |
-| **Impact Analysis**              | `writes` + `entities.relations` + `related_flows`          |
-| **Code Q&A**                     | `intent` + `calls` + `reads/writes`                        |
-| **Flow Tracing**                 | `flows` + `calls` + `emits/consumes`                       |
-| **Flow Visualization**           | `flows` + `entities.datasource` → terminal, Mermaid, HTML  |
+| Agent Capability                 | DSL Information Used                                                             |
+|----------------------------------|----------------------------------------------------------------------------------|
+| **Bug Triage**                   | `intent` + `on_fail` + `reads/writes` + `log.*` + `states`                       |
+| **Impact Analysis**              | `writes` + `entities.relations` + `related_flows`                                |
+| **Code Q&A**                     | `intent` + `calls` + `reads/writes`                                              |
+| **Flow Tracing**                 | `flows` + `calls` + `emits/consumes`                                             |
+| **Flow Visualization**           | `flows` + `entities.datasource` → terminal, Mermaid, HTML                        |
 | **Log Diagnosis**                | `log.success` + `log.error` → pattern match + variable extraction + flow context |
-| **Test Generation**              | `reads` + `writes` + `on_fail` + `validate`                |
-| **Security Audit**               | `auth` + `sensitive` + `reads/writes`                      |
-| **Performance Diagnosis**        | `metric` + `calls` (N+1 detection)                         |
-| **Migration Impact**             | `entities` + `writes` + `related_flows`                    |
-| **Service Dependency Analysis**  | `services` + `calls(via)` + `emits/consumes` + `topology`  |
-| **Channel Analysis**             | `channels` + `inbound/outbound_events` + `triggers_flow`   |
-| **Failure Propagation Analysis** | `services.depends_on` + `on_fail(circuit_breaker/degrade)` |
+| **Test Generation**              | `reads` + `writes` + `on_fail` + `validate`                                      |
+| **Security Audit**               | `auth` + `sensitive` + `reads/writes`                                            |
+| **Performance Diagnosis**        | `metric` + `calls` (N+1 detection)                                               |
+| **Migration Impact**             | `entities` + `writes` + `related_flows`                                          |
+| **Service Dependency Analysis**  | `services` + `calls(via)` + `emits/consumes` + `topology`                        |
+| **Channel Analysis**             | `channels` + `inbound/outbound_events` + `triggers_flow`                         |
+| **Failure Propagation Analysis** | `services.depends_on` + `on_fail(circuit_breaker/degrade)`                       |
 
 ### 7.3 Example: AI Bug Triage
 
@@ -1339,10 +1341,10 @@ with adoption:
 
 ## Appendix: Entity Generation Sources
 
-| Source                | Method                                          | Accuracy                                   |
-|-----------------------|-------------------------------------------------|--------------------------------------------|
-| ORM model definitions | Auto-extract field names, types, relations      | High (structure accurate, lacks semantics) |
-| Migration / DDL       | Parse SQL changes                               | Medium (structure only)                    |
-| AI analysis           | Infer field meaning from code context           | High (AI understands business context from requirements) |
+| Source                | Method                                     | Accuracy                                                 |
+|-----------------------|--------------------------------------------|----------------------------------------------------------|
+| ORM model definitions | Auto-extract field names, types, relations | High (structure accurate, lacks semantics)               |
+| Migration / DDL       | Parse SQL changes                          | Medium (structure only)                                  |
+| AI analysis           | Infer field meaning from code context      | High (AI understands business context from requirements) |
 
 Recommended flow: **AI generates complete entity definitions (structure + semantics) during code generation**

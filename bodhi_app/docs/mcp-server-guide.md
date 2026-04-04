@@ -8,7 +8,7 @@ Bodhi includes a local [MCP (Model Context Protocol)](https://modelcontextprotoc
 pip install bodhi-engine
 ```
 
-Your project must have a `.bodhi/` directory with YAML files (run `/bodhi-scan init` or create them manually).
+Your project must have a `.bodhi/` directory with YAML files (run `/bodhi init` or create them manually).
 
 ## Starting the Server
 
@@ -249,7 +249,7 @@ The server can't find or parse the `.bodhi/` directory. Check that:
 
 The knowledge graph is built from both `.bodhi/` YAML files and inline `@bodhi.*` tags in source code. If results are sparse:
 - Run `bodhi stats /path/to/your-project` to check coverage
-- Run `/bodhi-scan` to add inline tags to existing code
+- Run `/bodhi scan` to add inline tags to existing code
 - Check that source files use a supported language (Java, Python, Go, TypeScript, Kotlin, Rust, C#, C, C++)
 
 ### MCP server not showing up in Claude Code

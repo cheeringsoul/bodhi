@@ -1,6 +1,8 @@
 # Multi-Service Workspace — Usage Guide
 
-Bodhi supports querying across multiple microservice repos at once. Place all your service repos in a single directory, and Bodhi will scan each one's `.bodhi/` metadata, merge them into a unified knowledge graph, and validate cross-service consistency.
+Bodhi supports querying across multiple microservice repos at once. Place all your service repos in a single directory,
+and Bodhi will scan each one's `.bodhi/` metadata, merge them into a unified knowledge graph, and validate cross-service
+consistency.
 
 ## Directory Structure
 
@@ -27,7 +29,8 @@ workspace/
     src/
 ```
 
-Each subdirectory with a `.bodhi/` folder is treated as a service. The service name is resolved from (in priority order):
+Each subdirectory with a `.bodhi/` folder is treated as a service. The service name is resolved from (in priority
+order):
 
 1. `distributed.service` in `bodhi.yaml`
 2. `project.name` in `bodhi.yaml`
@@ -64,7 +67,8 @@ Warnings (2):
 bodhi serve-all ./workspace
 ```
 
-This starts an MCP server with the merged knowledge graph from all services. If there are validation errors (severity=error), the server refuses to start — fix the issues first.
+This starts an MCP server with the merged knowledge graph from all services. If there are validation errors (
+severity=error), the server refuses to start — fix the issues first.
 
 ### Configure with Claude Code
 
@@ -73,7 +77,10 @@ This starts an MCP server with the merged knowledge graph from all services. If 
   "mcpServers": {
     "bodhi-workspace": {
       "command": "bodhi",
-      "args": ["serve-all", "/path/to/workspace"]
+      "args": [
+        "serve-all",
+        "/path/to/workspace"
+      ]
     }
   }
 }
@@ -83,21 +90,21 @@ This starts an MCP server with the merged knowledge graph from all services. If 
 
 ### Cross-Service Query Tools
 
-| Tool | What it does | Example question |
-|------|-------------|-----------------|
-| `trace_event_chain` | Follow an event across all services | "What happens system-wide when order_created fires?" |
-| `cross_service_impact` | Blast radius of a change across all services | "What breaks across the system if I change OrderService.create?" |
-| `event_schema_diff` | Compare event schema across producer/consumer services | "Is the order_created schema consistent?" |
-| `service_deps` | Full dependency graph for a service | "What does order-service depend on?" |
-| `workspace_issues` | Show all cross-service validation issues | "Are there any consistency problems?" |
+| Tool                   | What it does                                           | Example question                                                 |
+|------------------------|--------------------------------------------------------|------------------------------------------------------------------|
+| `trace_event_chain`    | Follow an event across all services                    | "What happens system-wide when order_created fires?"             |
+| `cross_service_impact` | Blast radius of a change across all services           | "What breaks across the system if I change OrderService.create?" |
+| `event_schema_diff`    | Compare event schema across producer/consumer services | "Is the order_created schema consistent?"                        |
+| `service_deps`         | Full dependency graph for a service                    | "What does order-service depend on?"                             |
+| `workspace_issues`     | Show all cross-service validation issues               | "Are there any consistency problems?"                            |
 
 ### Standard Query Tools (workspace-scoped)
 
-| Tool | What it does |
-|------|-------------|
-| `query_flow` | Query a flow by `"service:flow_name"` key |
-| `list_services` | List all services with descriptions |
-| `list_all_flows` | List all flows across all services |
+| Tool              | What it does                                  |
+|-------------------|-----------------------------------------------|
+| `query_flow`      | Query a flow by `"service:flow_name"` key     |
+| `list_services`   | List all services with descriptions           |
+| `list_all_flows`  | List all flows across all services            |
 | `list_all_events` | List all events with producer/consumer counts |
 
 ## Usage Examples
@@ -113,11 +120,19 @@ AI calls `trace_event_chain("order_created")`:
   "event": "order_created",
   "channel": "kafka:order-events",
   "producers": [
-    {"fn": "OrderService.create", "flow": "create_order"}
+    {
+      "fn": "OrderService.create",
+      "flow": "create_order"
+    }
   ],
   "consumers": [
-    {"fn": "PaymentHandler.onOrderCreated", "flow": "hold_payment"},
-    {"fn": "NotificationHandler.onOrderCreated"}
+    {
+      "fn": "PaymentHandler.onOrderCreated",
+      "flow": "hold_payment"
+    },
+    {
+      "fn": "NotificationHandler.onOrderCreated"
+    }
   ]
 }
 ```
@@ -131,9 +146,16 @@ AI calls `cross_service_impact("orders")`:
 ```json
 {
   "target": "orders",
-  "affected_flows": ["order-service:create_order", "order-service:cancel_order"],
-  "affected_events": ["order_created"],
-  "affected_state_machines": ["order-service:order_lifecycle"]
+  "affected_flows": [
+    "order-service:create_order",
+    "order-service:cancel_order"
+  ],
+  "affected_events": [
+    "order_created"
+  ],
+  "affected_state_machines": [
+    "order-service:order_lifecycle"
+  ]
 }
 ```
 
@@ -149,19 +171,53 @@ AI calls `event_schema_diff("order_created")`:
   "consistent": false,
   "schemas": {
     "order-service": [
-      {"field": "orderId", "type": "string"},
-      {"field": "userId", "type": "string"},
-      {"field": "totalAmount", "type": "decimal"}
+      {
+        "field": "orderId",
+        "type": "string"
+      },
+      {
+        "field": "userId",
+        "type": "string"
+      },
+      {
+        "field": "totalAmount",
+        "type": "decimal"
+      }
     ],
     "payment-service": [
-      {"field": "orderId", "type": "string"},
-      {"field": "buyerId", "type": "string"},
-      {"field": "totalAmount", "type": "decimal"}
+      {
+        "field": "orderId",
+        "type": "string"
+      },
+      {
+        "field": "buyerId",
+        "type": "string"
+      },
+      {
+        "field": "totalAmount",
+        "type": "decimal"
+      }
     ]
   },
   "mismatches": [
-    {"field": "userId", "present_in": ["order-service"], "missing_from": ["payment-service"]},
-    {"field": "buyerId", "present_in": ["payment-service"], "missing_from": ["order-service"]}
+    {
+      "field": "userId",
+      "present_in": [
+        "order-service"
+      ],
+      "missing_from": [
+        "payment-service"
+      ]
+    },
+    {
+      "field": "buyerId",
+      "present_in": [
+        "payment-service"
+      ],
+      "missing_from": [
+        "order-service"
+      ]
+    }
   ]
 }
 ```
@@ -172,25 +228,25 @@ Root cause: order-service uses `userId`, payment-service expects `buyerId`.
 
 These are checked automatically when loading the workspace:
 
-| Code | Severity | What it checks |
-|------|----------|----------------|
-| `event-schema-mismatch` | ERROR | Same event has different fields across services |
-| `broken-flow-ref` | ERROR | `flow_ref` points to a service:flow that doesn't exist |
-| `duplicate-service` | ERROR | Two directories resolve to the same service name |
-| `unknown-remote-service` | WARNING | Flow step calls a remote service not in the workspace |
-| `unknown-dependency` | WARNING | Service depends on another service not in the workspace |
-| `event-no-consumer` | WARNING | Event has producers but no consumers |
-| `topology-unknown-event` | WARNING | Topology references an event not defined in any service |
+| Code                     | Severity | What it checks                                          |
+|--------------------------|----------|---------------------------------------------------------|
+| `event-schema-mismatch`  | ERROR    | Same event has different fields across services         |
+| `broken-flow-ref`        | ERROR    | `flow_ref` points to a service:flow that doesn't exist  |
+| `duplicate-service`      | ERROR    | Two directories resolve to the same service name        |
+| `unknown-remote-service` | WARNING  | Flow step calls a remote service not in the workspace   |
+| `unknown-dependency`     | WARNING  | Service depends on another service not in the workspace |
+| `event-no-consumer`      | WARNING  | Event has producers but no consumers                    |
+| `topology-unknown-event` | WARNING  | Topology references an event not defined in any service |
 
 Errors block `serve-all` from starting. Warnings are printed but don't block.
 
 ## Comparison: `serve` vs `serve-all`
 
-| | `bodhi serve` | `bodhi serve-all` |
-|---|---|---|
-| Scope | Single service repo | All services in a workspace |
-| Input | One `.bodhi/` directory | Multiple `.bodhi/` directories |
-| Flow keys | `"create_order"` | `"order-service:create_order"` |
-| Cross-service | Limited (only what one service knows) | Full (merged from all services) |
-| Validation | Single-service rules | Cross-service consistency checks |
-| Use case | Day-to-day development | Architecture review, debugging cross-service issues |
+|               | `bodhi serve`                         | `bodhi serve-all`                                   |
+|---------------|---------------------------------------|-----------------------------------------------------|
+| Scope         | Single service repo                   | All services in a workspace                         |
+| Input         | One `.bodhi/` directory               | Multiple `.bodhi/` directories                      |
+| Flow keys     | `"create_order"`                      | `"order-service:create_order"`                      |
+| Cross-service | Limited (only what one service knows) | Full (merged from all services)                     |
+| Validation    | Single-service rules                  | Cross-service consistency checks                    |
+| Use case      | Day-to-day development                | Architecture review, debugging cross-service issues |

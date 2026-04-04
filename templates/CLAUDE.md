@@ -2,7 +2,7 @@
 
 ## CRITICAL: DSL-First Workflow — ALWAYS Design Before Coding
 
-**This is the single most important rule.** When the user asks you to implement a new feature, API endpoint, or event-driven workflow — whether via `/bodhi-design` or a direct request — you MUST produce the YAML skeleton FIRST and get user confirmation BEFORE writing any source code.
+**This is the single most important rule.** When the user asks you to implement a new feature, API endpoint, or event-driven workflow — whether via `/bodhi design` or a direct request — you MUST produce the YAML skeleton FIRST and get user confirmation BEFORE writing any source code.
 
 ### How to detect "new feature" requests
 
@@ -13,7 +13,7 @@ If the user's message describes any of the following, it is a new feature and tr
 - A new cross-service integration
 - A new business flow (e.g., "after user places an order, deduct inventory, hold payment, emit event")
 
-If the user explicitly uses `/bodhi-design`, follow that command's rules. If the user describes a feature directly without using the command, you MUST still execute the same design-first workflow automatically.
+If the user explicitly uses `/bodhi design`, follow that command's rules. If the user describes a feature directly without using the command, you MUST still execute the same design-first workflow automatically.
 
 ### DSL-First steps
 
@@ -149,9 +149,9 @@ These are created/updated when you write the corresponding code:
 - `.bodhi/channels/<name>.yaml` — bidirectional channel definitions for WebSocket/Socket/SSE (when you add a bidirectional endpoint)
 - `.bodhi/topology/<name>.yaml` — cross-service event chain definitions (when events cross service boundaries)
 
-### Derived from inline tags (automatic via `/bodhi-scan`)
+### Derived from inline tags (automatic via `/bodhi`)
 
-These are NOT maintained during coding. Run `/bodhi-scan flows` or `/bodhi-scan` to generate them from inline tags:
+These are NOT maintained during coding. Run `/bodhi flows` or `/bodhi scan` to generate them from inline tags:
 
 - `.bodhi/flows/<name>.yaml` — derived from `@bodhi.calls` chains starting at entry points
 - `.bodhi/states/<name>.yaml` — derived from `@bodhi.writes table(status)` + transition logic
