@@ -186,8 +186,12 @@ All commands accept `--exclude DIR1 DIR2` to skip scanning certain directories.
 bodhi validate [path]              # Check DSL completeness and consistency (CI gate, exit 1 on errors)
 bodhi check [path]                 # Check inline tags vs .bodhi/ YAML consistency
 bodhi stats [path]                 # Output coverage statistics as JSON
+bodhi score [path]                 # Compute AI-friendliness score (0-100, exits 1 if <60)
+bodhi score [path] --json          # Same, JSON output for CI dashboards
 bodhi derive [path]                # Scaffold .bodhi/ YAML from inline tags (cold-start)
 ```
+
+`bodhi score` produces a weighted score across five dimensions (intent coverage, data-flow completeness, error handling, call-chain traceability, structural health), each with concrete reasons for any lost points. Suitable as a PR comment or README badge to track how AI-friendly a codebase is.
 
 ### PR Impact Analysis
 

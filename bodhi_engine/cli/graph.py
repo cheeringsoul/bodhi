@@ -4,6 +4,7 @@ Generate Mermaid diagrams from .bodhi/ flow definitions.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -13,13 +14,67 @@ from pathlib import Path
 from bodhi_engine.parser import load_bodhi_dir
 from bodhi_engine.parser.yaml_parser import Flow, Entity
 
-# writes that are not real database tables
+# writes that are not real database tables. Matched as exact names OR as
+# prefixes followed by ':' (e.g. 'cache:lb:{competitionId}').
 _NON_DB_WRITES = {"response", "request", "log", "cache", "session", "cookie", "header"}
+
+# Matches any character that is not allowed in a Mermaid node id.
+_ID_INVALID_CHARS = re.compile(r"[^A-Za-z0-9_]")
 
 
 def _sanitize_id(name: str) -> str:
-    """Convert a name like 'OrderService.create' to a valid Mermaid node id."""
-    return name.replace(".", "_").replace("/", "_").replace("-", "_").replace(" ", "_")
+    """Convert a name like 'OrderService.create' to a valid Mermaid node id.
+
+    Mermaid node ids must only contain [A-Za-z0-9_]. Anything else (dots,
+    colons, parentheses, braces, slashes, hyphens, spaces, CJK, etc.) is
+    replaced with '_'. Consecutive underscores are collapsed to keep ids
+    readable, and leading underscores are stripped.
+    """
+    sanitized = _ID_INVALID_CHARS.sub("_", name)
+    sanitized = re.sub(r"_+", "_", sanitized).strip("_")
+    return sanitized or "node"
+
+
+def _is_non_db(name: str) -> bool:
+    """Check if a read/write target is not a real DB table.
+
+    Matches exact names (e.g. 'response') or prefixes followed by ':'
+    (e.g. 'cache:lb:{competitionId}', 'session:user:{id}').
+    """
+    lowered = name.lower().strip()
+    if lowered in _NON_DB_WRITES:
+        return True
+    for prefix in _NON_DB_WRITES:
+        if lowered.startswith(prefix + ":"):
+            return True
+    return False
+
+
+def _parse_event_name(raw: str) -> str:
+    """Extract the bare event name from an emit/consume string.
+
+    Handles these formats (per Bodhi DSL spec):
+      - 'event_name(field1, field2)'
+      - 'event_name(field1) to kafka:topic'
+      - 'event_name to channel:foo'            (no payload)
+      - 'ws:event_name(...) to channel:foo'
+    Returns the part before '(' or ' to ', whichever comes first.
+    """
+    name = raw.strip()
+    # Strip " to <destination>" tail first (if present without a preceding paren)
+    to_idx = name.find(" to ")
+    paren_idx = name.find("(")
+    if to_idx != -1 and (paren_idx == -1 or to_idx < paren_idx):
+        name = name[:to_idx]
+    # Then strip the payload "(...)"
+    if "(" in name:
+        name = name.split("(")[0]
+    return name.strip()
+
+
+def _escape_label(text: str) -> str:
+    """Escape a label for use inside a Mermaid "..." quoted string."""
+    return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _classify_write(raw: str) -> tuple[str, bool]:
@@ -28,7 +83,7 @@ def _classify_write(raw: str) -> tuple[str, bool]:
     # "inventory(stock) via UPDATE" -> strip " via ..." too
     if " via " in name:
         name = name.split(" via ")[0].strip()
-    is_db = name.lower() not in _NON_DB_WRITES
+    is_db = not _is_non_db(name)
     return name, is_db
 
 
@@ -46,7 +101,7 @@ def _build_flow_body(flow: Flow, declared: set[str],
 
     # -- entry point: stadium shape
     entry_id = f"entry_{_sanitize_id(flow.name)}"
-    entry_label = f"{flow.entry_method} {flow.entry_path}"
+    entry_label = _escape_label(f"{flow.entry_method} {flow.entry_path}")
     if entry_id not in declared:
         lines.append(f'    {entry_id}(["{entry_label}"])')
         declared.add(entry_id)
@@ -62,23 +117,23 @@ def _build_flow_body(flow: Flow, declared: set[str],
         if fn_id not in declared:
             if step.remote:
                 # Remote steps get a different shape (subroutine shape)
-                label = f"{step.fn}\\n[{step.remote}]"
+                label = _escape_label(f"{step.fn}\n[{step.remote}]")
                 lines.append(f'    {fn_id}[["{label}"]]')
                 remote_ids.append(fn_id)
             else:
-                lines.append(f'    {fn_id}["{step.fn}"]')
+                lines.append(f'    {fn_id}["{_escape_label(step.fn)}"]')
             declared.add(fn_id)
 
         for call in step.calls:
             call_id = _sanitize_id(call)
             if call_id not in declared:
-                lines.append(f'    {call_id}["{call}"]')
+                lines.append(f'    {call_id}["{_escape_label(call)}"]')
                 declared.add(call_id)
             lines.append(f"    {fn_id} --> {call_id}")
 
         for read_raw in step.reads:
             name = read_raw.split("(")[0].strip()
-            if name.lower() in _NON_DB_WRITES or name.startswith("request"):
+            if _is_non_db(name) or name.startswith("request"):
                 continue
             db_tables.add(name)
             read_id = f"db_{_sanitize_id(name)}"
@@ -93,18 +148,18 @@ def _build_flow_body(flow: Flow, declared: set[str],
             db_edges.append(f"    {fn_id} -->|write| {write_id}")
 
         for event in step.emits:
-            event_name = event.split("(")[0].strip()
+            event_name = _parse_event_name(event)
             event_id = f"evt_{_sanitize_id(event_name)}"
             if event_id not in declared:
-                lines.append(f'    {event_id}{{{{{event_name}}}}}')
+                lines.append(f'    {event_id}{{{{"{_escape_label(event_name)}"}}}}')
                 declared.add(event_id)
             lines.append(f"    {fn_id} -.->|emit| {event_id}")
 
         for event in step.consumes:
-            event_name = event.split("(")[0].strip()
+            event_name = _parse_event_name(event)
             event_id = f"evt_{_sanitize_id(event_name)}"
             if event_id not in declared:
-                lines.append(f'    {event_id}{{{{{event_name}}}}}')
+                lines.append(f'    {event_id}{{{{"{_escape_label(event_name)}"}}}}')
                 declared.add(event_id)
             lines.append(f"    {event_id} -.->|consume| {fn_id}")
 
@@ -137,35 +192,17 @@ def _build_db_subgraphs(db_tables: set[str], entities: list[Entity]) -> list[str
     lines: list[str] = []
 
     for ds, tables in ds_groups.items():
-        if len(ds_groups) == 1 and not ungrouped:
-            # Single datasource with all tables — use subgraph
-            ds_id = f"ds_{_sanitize_id(ds)}"
-            lines.append(f'    subgraph {ds_id}["{ds}"]')
-            for table in tables:
-                db_id = f"db_{_sanitize_id(table)}"
-                lines.append(f'        {db_id}[("{table}")]')
-            lines.append("    end")
-        elif len(tables) > 1:
-            # Multiple tables in this datasource — group them
-            ds_id = f"ds_{_sanitize_id(ds)}"
-            lines.append(f'    subgraph {ds_id}["{ds}"]')
-            for table in tables:
-                db_id = f"db_{_sanitize_id(table)}"
-                lines.append(f'        {db_id}[("{table}")]')
-            lines.append("    end")
-        else:
-            # Single table in this datasource — still group to show the label
-            ds_id = f"ds_{_sanitize_id(ds)}"
-            lines.append(f'    subgraph {ds_id}["{ds}"]')
-            for table in tables:
-                db_id = f"db_{_sanitize_id(table)}"
-                lines.append(f'        {db_id}[("{table}")]')
-            lines.append("    end")
+        ds_id = f"ds_{_sanitize_id(ds)}"
+        lines.append(f'    subgraph {ds_id}["{_escape_label(ds)}"]')
+        for table in tables:
+            db_id = f"db_{_sanitize_id(table)}"
+            lines.append(f'        {db_id}[("{_escape_label(table)}")]')
+        lines.append("    end")
 
     # Ungrouped tables (no entity definition with datasource)
     for table in ungrouped:
         db_id = f"db_{_sanitize_id(table)}"
-        lines.append(f'    {db_id}[("{table}")]')
+        lines.append(f'    {db_id}[("{_escape_label(table)}")]')
 
     return lines
 
@@ -188,7 +225,7 @@ def flows_to_mermaid(flows: list[Flow], entities: list[Entity] | None = None) ->
             fn_ids.append(_sanitize_id(s.fn))
 
         if use_subgraph:
-            lines.append(f'    subgraph {_sanitize_id(flow.name)}["{flow.name}"]')
+            lines.append(f'    subgraph {_sanitize_id(flow.name)}["{_escape_label(flow.name)}"]')
 
         body, remote_ids = _build_flow_body(flow, declared, db_tables, db_edges)
         all_remote_ids.extend(remote_ids)

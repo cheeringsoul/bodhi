@@ -95,11 +95,23 @@ class FunctionDSL:
 # Pattern to match @bodhi.<tag> <value>
 TAG_PATTERN = re.compile(r"@bodhi\.(\S+)\s+(.*)")
 
-# Patterns to detect function declarations per language
+# Patterns to detect function declarations per language.
+#
+# Java note: the regex MUST require an explicit visibility modifier
+# (public/private/protected). Without that anchor, `re.search` happily
+# matches lines like `... new JsonArray(...)` inside method bodies —
+# treating `new` as the return type and `JsonArray` as the method name.
+# This was a real bug that produced phantom "overloaded" methods in any
+# class that also carried a class-level @bodhi.* tag. Package-private and
+# interface methods without an explicit modifier won't be parsed — that is
+# an accepted trade-off; add `public` if you want them tagged.
 FUNCTION_PATTERNS = {
     ".java": re.compile(
-        r"(?:public|private|protected|static|\s)+"
-        r"\S+\s+(\w+)\s*\("
+        r"(?:^|[\s;{}])"                                           # anchor: line start or separator
+        r"(?:public|private|protected)\s+"                         # REQUIRED visibility
+        r"(?:(?:static|final|abstract|synchronized|default|native)\s+)*"  # optional extra modifiers
+        r"(?:[\w<>,\[\]?.]+\s+)?"                                  # optional return type (no parens)
+        r"(\w+)\s*\("
     ),
     ".kt": re.compile(
         r"(?:fun)\s+(\w+)\s*\("

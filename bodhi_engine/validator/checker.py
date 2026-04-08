@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from ..config import load_config
 from ..parser import load_bodhi_dir, parse_directory
 
 
@@ -58,6 +59,7 @@ def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[I
 
     bodhi_dir = project_root / ".bodhi"
     dsl = load_bodhi_dir(bodhi_dir) if bodhi_dir.is_dir() else None
+    config = load_config(project_root)
     functions = parse_directory(project_root, exclude_dirs=exclude_dirs)
 
     # Build a set of all function qualified names for cross-reference
@@ -302,6 +304,37 @@ def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[I
                 message=f"Class '{impl_class}' declares @bodhi.implements {interface_name}, but '{interface_name}' has no @bodhi.* inline tags",
                 location=impl_class,
             ))
+
+    # Rule: method overloading — multiple tagged functions sharing the same
+    # ClassName.methodName identifier break Bodhi's call-graph resolution.
+    # Only flag when BOTH overloads carry @bodhi.* tags (untagged siblings
+    # are invisible to the parser and irrelevant).
+    for class_name, fns in class_functions.items():
+        by_name: dict[str, list] = {}
+        for fn in fns:
+            by_name.setdefault(fn.function_name, []).append(fn)
+        for method_name, group in by_name.items():
+            # Skip constructors (Java: method name == class name)
+            if method_name == class_name:
+                continue
+            # Skip user-whitelisted overloads (Builder/fluent APIs, etc.)
+            if f"{class_name}.{method_name}" in config.allow_overload:
+                continue
+            if len(group) > 1:
+                locations = ", ".join(
+                    f"{Path(fn.file_path).name}:{fn.line_number}" for fn in group
+                )
+                issues.append(Issue(
+                    severity=Severity.WARNING,
+                    rule="method-overloading",
+                    message=(
+                        f"Method '{class_name}.{method_name}' is overloaded "
+                        f"({len(group)} tagged implementations at {locations}). "
+                        f"Bodhi DSL uses ClassName.methodName as a unique identifier — "
+                        f"rename overloads to distinct names (e.g. createOrder, createBatchOrder)."
+                    ),
+                    location=group[0].file_path,
+                ))
 
     return issues
 

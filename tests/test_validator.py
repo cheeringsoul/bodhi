@@ -102,6 +102,30 @@ class TestValidator:
         warnings = [i for i in self.issues if i.rule == "topology-missing-event"]
         assert not any(i.message.endswith("'order_created' not defined in .bodhi/events/") for i in warnings)
 
+    def test_finds_method_overloading(self):
+        """BatchProcessor has two tagged process() methods — should warn."""
+        warnings = [i for i in self.issues if i.rule == "method-overloading"]
+        assert any("BatchProcessor.process" in i.message for i in warnings)
+        # Both implementation locations should be mentioned
+        msg = next(i.message for i in warnings if "BatchProcessor.process" in i.message)
+        assert "BatchProcessor.java" in msg
+
+    def test_allow_overload_whitelist(self, tmp_path):
+        """.bodhi/config.yaml allow_overload should suppress the warning."""
+        import shutil
+        src_dir = tmp_path / "src"
+        shutil.copytree(FIXTURES / "src", src_dir)
+        bodhi_dir = tmp_path / ".bodhi"
+        bodhi_dir.mkdir()
+        (bodhi_dir / "config.yaml").write_text(
+            "allow_overload:\n  - BatchProcessor.process\n"
+        )
+        issues = validate(tmp_path)
+        assert not any(
+            i.rule == "method-overloading" and "BatchProcessor.process" in i.message
+            for i in issues
+        )
+
 
 class TestImplementsValidation:
 

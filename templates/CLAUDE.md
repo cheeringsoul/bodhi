@@ -672,6 +672,20 @@ Do not use method overloading. Bodhi DSL uses `ClassName.methodName` as the uniq
 - Bad: `create(Order)`, `create(BatchOrder)`
 - Good: `createOrder(Order)`, `createBatchOrder(BatchOrder)`
 
+`bodhi validate` detects this automatically (`method-overloading` rule) and warns when two tagged methods share the same `ClassName.methodName`.
+
+### Structure Stability
+
+AI's ability to work on a codebase degrades quickly when structural identifiers churn. The names and locations that appear in `@bodhi.*` tags, flow YAML, and call chains act as the project's shared vocabulary — every rename is a cache invalidation for every AI session that has seen the code.
+
+**Rules:**
+
+- **Rename atomically**: when you rename a public function, class, or module, update all `@bodhi.calls` references, `.bodhi/flows/*.yaml` `fn:` fields, and `.bodhi/events/*.yaml` producer/consumer entries **in the same commit**. `bodhi check` will catch the dangling references, but only if you run it before committing.
+- **Prefer additive changes**: when the change is not behavioral (e.g. you want a clearer name), add the new name and deprecate the old one instead of renaming in place. The old identifier remains a valid grep target until all callers migrate.
+- **Stable directory layout**: do not reorganize `src/` directories just because a new pattern looks cleaner. Directory paths show up in `file_path` fields throughout the knowledge graph and in human memory. Move files only when the business domain actually changed.
+- **API stability over API elegance**: once an endpoint, event name, or entity field appears in `.bodhi/services/*.yaml` or `.bodhi/events/*.yaml`, treat it as published. Renaming it for aesthetic reasons invalidates downstream consumers' mental model and their tags. Add a new one and deprecate the old instead.
+- **Churn budget**: if a refactor would rename more than ~5 public identifiers at once, stop and ask the user whether the churn is justified. Large sweeps are usually a sign that the refactor is conflating a behavioral change with a naming cleanup — separate them into two commits.
+
 ### Keep Call Chains Traceable
 
 The goal: anyone (human or AI) reading the code can follow the full flow from entry point to every downstream call without guessing which implementation runs.

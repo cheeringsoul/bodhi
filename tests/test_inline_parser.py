@@ -148,10 +148,28 @@ class TestDirectoryParser:
         functions = parse_directory(FIXTURES / "src")
         # 3 from OrderService.java + 2 from OrderServiceImpl.java
         # + 2 from NotificationHandler.java + 2 from Python
-        # + 2 from PaymentService.java = 11
-        assert len(functions) == 11
+        # + 2 from PaymentService.java + 2 from BatchProcessor.java
+        # + 1 from PhantomMethod.java = 14
+        assert len(functions) == 14
 
     def test_skips_non_source_files(self):
         # Should not crash on non-source files in directory
         functions = parse_directory(FIXTURES)
         assert len(functions) >= 7
+
+
+class TestPhantomMethodRegression:
+    """Regression: variable assignments like `new JsonArray()` inside method
+    bodies must not be parsed as method declarations — especially when the
+    enclosing class carries a class-level @bodhi.* tag that would otherwise
+    get inherited by phantom captures."""
+
+    def test_no_phantom_methods_from_new_expressions(self):
+        functions = parse_file(FIXTURES / "src" / "PhantomMethod.java")
+        names = {f.function_name for f in functions}
+        # The only real method is doStuff.
+        assert names == {"doStuff"}
+        # Specifically, `new JsonArray()` must not produce a "JsonArray" method.
+        assert "JsonArray" not in names
+        assert "Wrapper" not in names
+        assert "bar" not in names

@@ -5,6 +5,7 @@ Usage:
     bodhi validate [<path>]    Check DSL completeness and consistency
     bodhi check [<path>]       Check inline tags vs YAML consistency
     bodhi stats [<path>]       Show coverage statistics
+    bodhi score [<path>]       Compute AI-friendliness score (weighted, 0-100)
     bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags (scaffold)
     bodhi graph [<path>]       Generate Mermaid diagrams from flows
     bodhi show flow [<name>]   Visualize a flow's call chain (terminal)
@@ -22,6 +23,7 @@ from bodhi_engine.parser import parse_directory, load_bodhi_dir
 from bodhi_engine.validator.checker import validate, format_report
 from bodhi_engine.deriver import scaffold, validate_consistency
 from bodhi_engine.cli.graph import cmd_graph
+from bodhi_engine.cli.score import cmd_score
 from bodhi_engine.cli.show import cmd_show_flow, cmd_show_stats
 from bodhi_app.cli.impact_pr import cmd_impact_pr
 
@@ -96,6 +98,14 @@ def main():
     p_stats = subparsers.add_parser("stats", help="Show coverage statistics")
     p_stats.add_argument("path", nargs="?", default=".", help="Project root directory")
 
+    p_score = subparsers.add_parser(
+        "score",
+        help="Compute AI-friendliness score (5 weighted dimensions, 0-100)",
+    )
+    p_score.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_score.add_argument("--json", action="store_true", help="Output as JSON for CI integration")
+    p_score.add_argument("--verbose", "-v", action="store_true", help="List offending functions under each dimension")
+
     p_derive = subparsers.add_parser("derive", help="Scaffold Layer 2 YAML files from inline tags")
     p_derive.add_argument("path", nargs="?", default=".", help="Project root directory")
 
@@ -160,6 +170,8 @@ def main():
         cmd_check(project_root, exclude_dirs)
     elif args.command == "stats":
         cmd_stats(project_root, exclude_dirs)
+    elif args.command == "score":
+        cmd_score(project_root, exclude_dirs=exclude_dirs, json_output=args.json, verbose=args.verbose)
     elif args.command == "derive":
         cmd_derive(project_root, exclude_dirs)
     elif args.command == "graph":
