@@ -125,17 +125,19 @@ Works with **Java, Python, Go, TypeScript, Kotlin, Rust, C#, C, C++**.
 
 ## Quick Start
 
-### 1. Enable DSL generation for new code
+### 1. Install into your project
 
-Copy `CLAUDE.md` and the Claude Code hook into your project. Claude Code reads `CLAUDE.md` on every conversation
-and follows the DSL generation rules. The hook runs `bodhi validate` after every file edit, surfacing inconsistencies
-immediately so Claude can fix them in the same session.
+Copy `CLAUDE.md`, the `/bodhi` slash command, and the validation hook into your project:
 
 ```bash
 git clone https://github.com/anthropics/bodhi.git
 
 # Rules file — Claude reads this on every conversation
 cp bodhi/templates/CLAUDE.md /path/to/your-project/CLAUDE.md
+
+# /bodhi slash command (design, init, scan, flows, concepts)
+mkdir -p /path/to/your-project/.claude/commands
+cp bodhi/templates/commands/bodhi.md /path/to/your-project/.claude/commands/
 
 # PostToolUse hook — validates DSL after every Edit/Write
 mkdir -p /path/to/your-project/.claude/hooks
@@ -147,17 +149,10 @@ chmod +x /path/to/your-project/.claude/hooks/bodhi-check.sh
 pip install bodhi-engine
 ```
 
-### 2. Scan existing code (optional)
-
-Copy the slash command into your project, then use it in Claude Code:
-
-```bash
-mkdir -p /path/to/your-project/.claude/commands
-cp bodhi/templates/commands/bodhi.md /path/to/your-project/.claude/commands/
-```
+### 2. Use `/bodhi` commands
 
 ```
-/bodhi design <feature description>             # Design YAML skeleton before coding (recommended)
+/bodhi design <description or file>             # Design YAML skeleton before coding (recommended)
 /bodhi init                                     # Initialize .bodhi/ directory
 /bodhi scan src/main/java/com/example/order/    # Add inline tags per directory
 /bodhi flows                                    # Generate flow files

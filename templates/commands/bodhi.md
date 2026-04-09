@@ -4,7 +4,7 @@ Unified Bodhi DSL command. Execute according to the subcommand provided in $ARGU
 
 | Subcommand             | Description                                                |
 |------------------------|------------------------------------------------------------|
-| `design <description>` | Design YAML skeleton for a new feature BEFORE writing code |
+| `design <description or file>` | Design YAML skeleton for a new feature BEFORE writing code |
 | `init`                 | Initialize the .bodhi/ directory                           |
 | `scan <directory>`     | Scan source code and add @bodhi.* inline tags              |
 | `flows`                | Generate .bodhi/flows/*.yaml from existing inline tags     |
@@ -14,16 +14,23 @@ Parse $ARGUMENTS to determine which subcommand to execute, then follow the corre
 
 ---
 
-## Subcommand: `design <description>`
+## Subcommand: `design <description or file>`
 
 Design the YAML skeleton for a new feature BEFORE writing any code. This implements the DSL-First workflow.
 
-The description after `design` is a natural language description of the feature. Examples:
+The argument after `design` can be either:
+
+1. **Inline description** — a natural language description of the feature
+2. **File path** — a path to a requirements document (`.md`, `.txt`, etc.)
+
+If the argument looks like a file path (contains `/` or `.` extension), read the file and use its content as the requirement. Otherwise treat it as an inline description.
+
+Examples:
 
 - `design 用户下单后扣库存冻结金额发order_created事件到Kafka`
--
-`design Add a payment callback endpoint that receives webhook from payment gateway, updates order status, and notifies user`
-- `design WebSocket endpoint for real-time order status push to mobile clients`
+- `design Add a payment callback endpoint that receives webhook from payment gateway, updates order status, and notifies user`
+- `design docs/requirements/order-system.md`
+- `design ./PRD.md`
 
 ### Step 1: Analyze the requirement
 
