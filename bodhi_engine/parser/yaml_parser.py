@@ -303,7 +303,13 @@ class ProjectMeta:
 # --- Parsers ---
 
 def parse_flow(data: dict) -> Flow:
-    entry = data.get("entry", {})
+    raw_entry = data.get("entry", {})
+    if isinstance(raw_entry, str):
+        entry = {"type": raw_entry}
+    elif isinstance(raw_entry, dict):
+        entry = raw_entry
+    else:
+        entry = {}
     steps = []
     for s in data.get("steps", []):
         steps.append(FlowStep(
@@ -426,16 +432,20 @@ def parse_event(data: dict) -> Event:
 
     producers = []
     for p in data.get("producers", []):
+        if isinstance(p, str):
+            p = {"fn": p}
         producers.append(EventEndpoint(
-            fn=p["fn"],
+            fn=p.get("fn", ""),
             flow=p.get("flow"),
             description=p.get("description", ""),
         ))
 
     consumers = []
     for c in data.get("consumers", []):
+        if isinstance(c, str):
+            c = {"fn": c}
         consumers.append(EventEndpoint(
-            fn=c["fn"],
+            fn=c.get("fn", ""),
             flow=c.get("flow"),
             description=c.get("description", ""),
         ))
@@ -571,8 +581,8 @@ def parse_project_meta(data: dict) -> ProjectMeta:
     distributed = None
     if dist_data:
         distributed = DistributedMeta(
-            system=dist_data["system"],
-            service=dist_data["service"],
+            system=dist_data.get("system", ""),
+            service=dist_data.get("service", ""),
             registry=dist_data.get("registry"),
         )
     runtime_data = data.get("runtime")

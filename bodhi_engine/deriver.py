@@ -134,18 +134,27 @@ def _parse_calls_value(val: str) -> tuple[str, Optional[str]]:
 def _extract_entity_from_rw(val: str) -> Optional[str]:
     """Extract entity name from a reads/writes value.
 
-    'orders(id, userId) via INSERT' -> 'orders'
-    'request.body(userId)' -> None
-    'cache:session(token)' -> None
-    'response(200)' -> None
+    Returns the entity (table) name, or None for non-entity references.
+
+    Rules:
+    - DSL keywords (request.*, response*, env:*, config:*, cache:*) → None
+    - Contains ':' → prefixed external store (redis:key, kafka:topic) → None
+    - Contains '.' → external data source (eth.log, ws.message) → None
+    - Contains '{' or '/' → template or URL path → None
     """
     v = val.strip()
     for prefix in ("request.", "response", "env:", "config:", "cache:"):
         if v.startswith(prefix):
             return None
     if "(" in v:
-        return v[:v.index("(")].strip()
-    return v.split()[0] if v else None
+        name = v[:v.index("(")].strip()
+    else:
+        name = v.split()[0] if v else None
+    if not name:
+        return None
+    if ":" in name or "." in name or "{" in name or "/" in name:
+        return None
+    return name
 
 
 def _fn_to_flow_step(fn: FunctionDSL) -> FlowStep:
@@ -168,6 +177,38 @@ def _build_fn_index(functions: list[FunctionDSL]) -> dict[str, FunctionDSL]:
     for fn in functions:
         index[fn.qualified_name] = fn
     return index
+
+
+def _fn_matches(yaml_fn: str, code_fn: str) -> bool:
+    """Check if a YAML fn name matches a code fn name, allowing suffix match.
+
+    e.g. 'cex.BinanceWS.handleTicker' matches 'BinanceWS.handleTicker'
+    """
+    if yaml_fn == code_fn:
+        return True
+    if yaml_fn.endswith("." + code_fn) or code_fn.endswith("." + yaml_fn):
+        return True
+    return False
+
+
+def _fn_in_index(fn_name: str, fn_index: dict[str, FunctionDSL]) -> bool:
+    """Check if fn_name matches any key in fn_index (exact or suffix)."""
+    if fn_name in fn_index:
+        return True
+    for code_fn in fn_index:
+        if _fn_matches(fn_name, code_fn):
+            return True
+    return False
+
+
+def _fn_set_matches(fn_name: str, fn_set: set[str]) -> bool:
+    """Check if fn_name matches any element in fn_set (exact or suffix)."""
+    if fn_name in fn_set:
+        return True
+    for s in fn_set:
+        if _fn_matches(fn_name, s):
+            return True
+    return False
 
 
 def _to_snake_case(name: str) -> str:
@@ -204,9 +245,11 @@ def derive_flows(functions: list[FunctionDSL]) -> list[Flow]:
             continue
         is_http_entry = any(r.startswith("request.") for r in fn.reads)
         is_event_entry = bool(fn.consumes)
-        is_uncalled = fn.qualified_name not in called_fns
+        is_uncalled = not _fn_set_matches(fn.qualified_name, called_fns)
 
-        if is_http_entry or is_event_entry or (is_uncalled and (fn.writes or fn.calls)):
+        if is_http_entry or is_event_entry:
+            entry_points.append(fn)
+        elif is_uncalled and fn.calls:
             entry_points.append(fn)
 
     flows: list[Flow] = []
@@ -468,7 +511,7 @@ def _validate_flows(
     fn_index = _build_fn_index(functions)
     for flow in yaml_flows:
         for step in flow.steps:
-            if step.fn not in fn_index:
+            if not _fn_in_index(step.fn, fn_index):
                 report.issues.append(ConsistencyIssue(
                     severity="error",
                     category="flow",
@@ -482,7 +525,7 @@ def _validate_flows(
         if not derived:
             # Try matching by entry function
             for df in derived_flows:
-                if df.steps and flow.steps and df.steps[0].fn == flow.steps[0].fn:
+                if df.steps and flow.steps and _fn_matches(df.steps[0].fn, flow.steps[0].fn):
                     derived = df
                     break
 
@@ -516,10 +559,17 @@ def _validate_flows(
         if f.steps:
             yaml_entry_fns.add(f.steps[0].fn)
 
+    # Collect all fns that appear as steps in any YAML flow
+    yaml_all_step_fns = set()
+    for f in yaml_flows:
+        for s in f.steps:
+            yaml_all_step_fns.add(s.fn)
+
     for df in derived_flows:
         if df.steps:
             entry_fn = df.steps[0].fn
-            if entry_fn not in yaml_entry_fns:
+            if not _fn_set_matches(entry_fn, yaml_entry_fns) and \
+               not _fn_set_matches(entry_fn, yaml_all_step_fns):
                 report.issues.append(ConsistencyIssue(
                     severity="warning",
                     category="flow",
@@ -567,38 +617,42 @@ def _validate_events(
         # Check producers
         yaml_producer_fns = {p.fn for p in ye.producers}
         derived_producer_fns = {p.fn for p in de.producers}
-        for fn in derived_producer_fns - yaml_producer_fns:
-            report.issues.append(ConsistencyIssue(
-                severity="error",
-                category="event",
-                message=f"'{fn}' emits '{name}' in code but is not listed as a producer in YAML.",
-                source=f"events/{name}.yaml",
-            ))
-        for fn in yaml_producer_fns - derived_producer_fns:
-            report.issues.append(ConsistencyIssue(
-                severity="warning",
-                category="event",
-                message=f"'{fn}' listed as producer of '{name}' in YAML but no @bodhi.emits found in code.",
-                source=f"events/{name}.yaml",
-            ))
+        for fn in derived_producer_fns:
+            if not _fn_set_matches(fn, yaml_producer_fns):
+                report.issues.append(ConsistencyIssue(
+                    severity="error",
+                    category="event",
+                    message=f"'{fn}' emits '{name}' in code but is not listed as a producer in YAML.",
+                    source=f"events/{name}.yaml",
+                ))
+        for fn in yaml_producer_fns:
+            if not _fn_set_matches(fn, derived_producer_fns):
+                report.issues.append(ConsistencyIssue(
+                    severity="warning",
+                    category="event",
+                    message=f"'{fn}' listed as producer of '{name}' in YAML but no @bodhi.emits found in code.",
+                    source=f"events/{name}.yaml",
+                ))
 
         # Check consumers
         yaml_consumer_fns = {c.fn for c in ye.consumers}
         derived_consumer_fns = {c.fn for c in de.consumers}
-        for fn in derived_consumer_fns - yaml_consumer_fns:
-            report.issues.append(ConsistencyIssue(
-                severity="error",
-                category="event",
-                message=f"'{fn}' consumes '{name}' in code but is not listed as a consumer in YAML.",
+        for fn in derived_consumer_fns:
+            if not _fn_set_matches(fn, yaml_consumer_fns):
+                report.issues.append(ConsistencyIssue(
+                    severity="error",
+                    category="event",
+                    message=f"'{fn}' consumes '{name}' in code but is not listed as a consumer in YAML.",
                 source=f"events/{name}.yaml",
             ))
-        for fn in yaml_consumer_fns - derived_consumer_fns:
-            report.issues.append(ConsistencyIssue(
-                severity="warning",
-                category="event",
-                message=f"'{fn}' listed as consumer of '{name}' in YAML but no @bodhi.consumes found in code.",
-                source=f"events/{name}.yaml",
-            ))
+        for fn in yaml_consumer_fns:
+            if not _fn_set_matches(fn, derived_consumer_fns):
+                report.issues.append(ConsistencyIssue(
+                    severity="warning",
+                    category="event",
+                    message=f"'{fn}' listed as consumer of '{name}' in YAML but no @bodhi.consumes found in code.",
+                    source=f"events/{name}.yaml",
+                ))
 
         # Check channel consistency
         if ye.channel and de.channel and ye.channel != de.channel:
@@ -647,13 +701,22 @@ def _validate_services(
         ))
 
     # Dependencies in YAML but not in code
+    # Only warn for deps that declare explicit APIs — those are the ones
+    # where @bodhi.calls via is expected. Deps without apis (infra, MQ,
+    # long-lived connections) are accessed via reads/writes/consumes, not calls.
     for name in yaml_dep_services - derived_dep_services:
-        report.issues.append(ConsistencyIssue(
-            severity="warning",
-            category="service",
-            message=f"Service '{name}' listed in YAML depends_on but no @bodhi.calls via found in code.",
-            source=name,
-        ))
+        has_apis = False
+        for svc in yaml_services:
+            for dep in svc.depends_on:
+                if dep.service == name and dep.apis:
+                    has_apis = True
+        if has_apis:
+            report.issues.append(ConsistencyIssue(
+                severity="warning",
+                category="service",
+                message=f"Service '{name}' listed in YAML depends_on with APIs but no @bodhi.calls via found in code.",
+                source=name,
+            ))
 
 
 def _validate_entities(
