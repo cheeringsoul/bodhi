@@ -633,3 +633,197 @@ def _apply_commit_result(
     stats["commits_analyzed"] += 1
     processed_hashes.append(commit.hash)
     progress.advance(task)
+
+
+# ── Prepare mode (no API key needed) ──────────────────────────────
+
+def cmd_import_history_prepare(
+    project_root: Path,
+    branch: str = "main",
+    since: str | None = None,
+    until: str | None = None,
+    last: int | None = None,
+    github: str | None = None,
+    exclude_dirs: set[str] | None = None,
+):
+    console = Console()
+
+    console.print(f"[bold]Scanning git history on branch '{branch}'...[/bold]")
+    walker = CommitWalker(project_root, branch=branch, since=since,
+                          until=until, last=last)
+    try:
+        commits = walker.walk()
+    except RuntimeError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        sys.exit(1)
+
+    console.print(f"Found {len(commits)} meaningful commits")
+    if not commits:
+        console.print("[yellow]No meaningful commits found.[/yellow]")
+        sys.exit(0)
+
+    commits.reverse()
+
+    diff_parser = DiffParser(project_root)
+    prompt_builder = PromptBuilder()
+    context_collector = ContextCollector(github_repo=github)
+
+    prepare_dir = project_root / ".bodhi-import" / "prepare"
+    prepare_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_files = []
+    total_methods = 0
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Extracting methods", total=len(commits))
+
+        for idx, commit in enumerate(commits):
+            progress.update(task, description=f"[cyan]{commit.hash[:8]}[/cyan] {commit.message[:40]}")
+
+            try:
+                method_changes = diff_parser.extract_method_changes(commit)
+            except Exception:
+                progress.advance(task)
+                continue
+
+            deleted = [m for m in method_changes if m.change_type == "deleted"]
+            active = [m for m in method_changes if m.change_type != "deleted"]
+
+            if not active and not deleted:
+                progress.advance(task)
+                continue
+
+            extra_context = context_collector.collect(commit)
+            user_prompt = prompt_builder.build_batch_prompt(
+                active, commit, extra_context=extra_context
+            ) if active else ""
+
+            filename = f"{idx:04d}_{commit.hash[:8]}.json"
+            data = {
+                "commit_hash": commit.hash,
+                "commit_message": commit.message,
+                "deleted_methods": [
+                    {"file_path": m.file_path, "class_name": m.class_name,
+                     "method_name": m.method_name}
+                    for m in deleted
+                ],
+                "active_methods": [
+                    {"file_path": m.file_path, "class_name": m.class_name,
+                     "method_name": m.method_name, "change_type": m.change_type}
+                    for m in active
+                ],
+                "user_prompt": user_prompt,
+            }
+            (prepare_dir / filename).write_text(json.dumps(data, indent=2, ensure_ascii=False))
+            prompt_files.append(filename)
+            total_methods += len(active)
+            progress.advance(task)
+
+    (prepare_dir / "_system_prompt.txt").write_text(SYSTEM_PROMPT)
+
+    manifest = {
+        "total_commits": len(prompt_files),
+        "total_active_methods": total_methods,
+        "prompt_files": prompt_files,
+    }
+    (prepare_dir / "_manifest.json").write_text(json.dumps(manifest, indent=2))
+
+    console.print(f"\n[bold green]Prepare done![/bold green]")
+    console.print(f"  Commits with methods: {len(prompt_files)}")
+    console.print(f"  Total methods to annotate: {total_methods}")
+    console.print(f"  Prompt files: {prepare_dir}/")
+    console.print(f"\nNext: use [bold]/bodhi import-history[/bold] in Claude Code, or run [bold]bodhi import-history --finalize[/bold] after writing response files.")
+
+
+# ── Finalize mode (read responses, write YAML) ───────────────────
+
+def cmd_import_history_finalize(
+    project_root: Path,
+    output_mode: str = "tags",
+):
+    console = Console()
+
+    prepare_dir = project_root / ".bodhi-import" / "prepare"
+    responses_dir = project_root / ".bodhi-import" / "responses"
+
+    manifest_path = prepare_dir / "_manifest.json"
+    if not manifest_path.exists():
+        console.print("[red]Error: no prepare data found. Run --prepare first.[/red]")
+        sys.exit(1)
+
+    manifest = json.loads(manifest_path.read_text())
+    prompt_files = manifest["prompt_files"]
+
+    accumulator = TagAccumulator()
+    stats = {"commits_analyzed": 0, "commits_skipped": 0, "api_calls": 0,
+             "errors": 0, "methods_found": 0, "estimated_cost": 0.0}
+
+    for filename in prompt_files:
+        prompt_data = json.loads((prepare_dir / filename).read_text())
+
+        for d in prompt_data.get("deleted_methods", []):
+            qname = f"{d['class_name']}.{d['method_name']}" if d.get("class_name") else d["method_name"]
+            accumulator.remove_deleted(qname)
+
+        active = prompt_data.get("active_methods", [])
+        if not active:
+            stats["commits_skipped"] += 1
+            continue
+
+        response_file = responses_dir / filename
+        if not response_file.exists():
+            console.print(f"  [yellow]Missing response: {filename}[/yellow]")
+            stats["errors"] += 1
+            continue
+
+        try:
+            results = json.loads(response_file.read_text())
+            if isinstance(results, dict) and "methods" in results:
+                results = results["methods"]
+            if isinstance(results, dict):
+                results = [results]
+        except (json.JSONDecodeError, ValueError) as e:
+            console.print(f"  [red]Bad response {filename}: {e}[/red]")
+            stats["errors"] += 1
+            continue
+
+        stats["methods_found"] += len(active)
+        stats["api_calls"] += 1
+
+        for i, method in enumerate(active):
+            if i < len(results):
+                r = results[i]
+                tags = GeneratedTags(
+                    file_path=method["file_path"],
+                    class_name=method.get("class_name"),
+                    method_name=method["method_name"],
+                    intent=r.get("intent", ""),
+                    reads=r.get("reads", []),
+                    writes=r.get("writes", []),
+                    calls=r.get("calls", []),
+                    emits=r.get("emits", []),
+                    consumes=r.get("consumes", []),
+                    on_fail=r.get("on_fail", []),
+                    commit_hash=prompt_data["commit_hash"],
+                )
+                accumulator.add(tags)
+
+        stats["commits_analyzed"] += 1
+
+    if output_mode == "tags":
+        writer = OutputWriter(project_root)
+        writer.write(accumulator, stats)
+        console.print(f"\n[bold green]Finalize done![/bold green]")
+        console.print(f"  Commits analyzed: {stats['commits_analyzed']}")
+        console.print(f"  Methods annotated: {len(accumulator.get_all())}")
+        if stats["errors"]:
+            console.print(f"  Errors: {stats['errors']}")
+        console.print(f"  Output: {project_root / '.bodhi-import' / 'tags/'}")
+    else:
+        console.print("[yellow]inject mode not yet implemented — use --output tags[/yellow]")
