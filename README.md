@@ -23,11 +23,9 @@ reasoning. Not documentation for humans to read and forget, but structured intel
 Bodhi is designed for **AI-first projects** — codebases where AI writes the code from scratch. In this workflow, Claude
 generates code and DSL annotations simultaneously, keeping semantics accurate and complete from day one.
 
-For **existing / legacy projects**, you have two options: `/bodhi scan` to retrofit annotations from the current code
-state, or `bodhi import-history` to reverse-generate annotations from git history (higher accuracy for projects with
-good commit messages and PR descriptions). Coverage and accuracy depend on code complexity and style. Projects with heavy
-reflection, runtime wiring, or deep inheritance hierarchies are harder for AI to annotate reliably. Treat results as a
-starting point that needs human review.
+For **existing / legacy projects**, use `/bodhi scan` to retrofit annotations from the current code state. Coverage and
+accuracy depend on code complexity and style. Projects with heavy reflection, runtime wiring, or deep inheritance
+hierarchies are harder for AI to annotate reliably. Treat results as a starting point that needs human review.
 
 ## Best Practices: How to Work with AI + Bodhi
 
@@ -267,24 +265,6 @@ Available MCP tools:
 bodhi workspace-validate [path]    # Validate cross-service consistency (event schema mismatch, broken flow_ref, etc.)
 ```
 
-### Git History DSL Import
-
-Reverse-generate `@bodhi.*` annotations from git history — walk through commits, extract method changes, and use AI to
-generate DSL tags. Enables Bodhi to be applied to any existing project.
-
-```bash
-bodhi import-history .                              # Analyze current repo
-bodhi import-history . --last 100                   # Last 100 commits only
-bodhi import-history . --branch main --since 2024-01-01  # Time range
-bodhi import-history . --dry-run                    # Preview without calling AI
-bodhi import-history . --github owner/repo          # Enhanced context from PRs/issues
-bodhi import-history . --concurrency 5 --budget 10  # Parallel + cost cap
-bodhi import-history . --resume                     # Resume after interruption
-```
-
-Output goes to `.bodhi-import/tags/` as per-class YAML files. Supports Anthropic (Claude) and OpenAI providers.
-See [`bodhi_app/docs/cli-reference.md`](bodhi_app/docs/cli-reference.md) for full option reference.
-
 ### CI Integration
 
 Ready-to-use GitHub Actions workflows are in [`bodhi_app/templates/ci/`](bodhi_app/templates/ci/):
@@ -366,7 +346,7 @@ bodhi/
 │   ├── deriver.py                 # Scaffold Layer 2 YAML from inline tags
 │   └── workspace.py               # Multi-service workspace aggregation
 ├── bodhi_app/                     # Application layer — CLI, MCP, visualization
-│   ├── cli/                       # CLI commands (validate, show, graph, import-history, etc.)
+│   ├── cli/                       # CLI commands (validate, show, graph, impact-pr, etc.)
 │   ├── mcp/                       # MCP server (single + federated workspace)
 │   └── diagnose.py                # Log diagnosis
 ├── tests/                         # 228 tests

@@ -12,7 +12,6 @@ Usage:
     bodhi show stats           Coverage dashboard (terminal)
     bodhi serve [<path>]       Start MCP server for AI coding assistants
     bodhi impact-pr [<path>]   Analyse git diff and produce PR impact report
-    bodhi import-history [<path>]  Reverse-generate Bodhi DSL from git history
 """
 
 import argparse
@@ -27,7 +26,6 @@ from bodhi_engine.cli.graph import cmd_graph
 from bodhi_engine.cli.score import cmd_score
 from bodhi_engine.cli.show import cmd_show_flow, cmd_show_stats
 from bodhi_app.cli.impact_pr import cmd_impact_pr
-from bodhi_app.cli.import_history import cmd_import_history, cmd_import_history_prepare, cmd_import_history_finalize
 
 
 def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
@@ -149,30 +147,6 @@ def main():
     )
     p_workspace_validate.add_argument("path", nargs="?", default=".", help="Workspace directory")
 
-    p_import = subparsers.add_parser(
-        "import-history",
-        help="Reverse-generate Bodhi DSL from git history",
-    )
-    p_import.add_argument("path", nargs="?", default=".", help="Project root directory")
-    p_import.add_argument("--branch", default="main", help="Git branch to analyze (default: main)")
-    p_import.add_argument("--since", metavar="DATE", help="Only commits after this date (e.g. 2024-01-01)")
-    p_import.add_argument("--until", metavar="DATE", help="Only commits before this date")
-    p_import.add_argument("--last", type=int, metavar="N", help="Only analyze the last N commits")
-    p_import.add_argument("--output", choices=["tags", "inject"], default="tags",
-                          help="Output mode: tags (standalone files) or inject (into source)")
-    p_import.add_argument("--provider", choices=["anthropic", "openai"], default="anthropic",
-                          help="AI provider (default: anthropic)")
-    p_import.add_argument("--model", metavar="MODEL", help="AI model name override")
-    p_import.add_argument("--concurrency", type=int, default=1, help="Concurrency level for API calls")
-    p_import.add_argument("--budget", type=float, metavar="USD", help="Budget cap in USD")
-    p_import.add_argument("--dry-run", action="store_true", help="Show what would be processed without calling AI")
-    p_import.add_argument("--resume", action="store_true", help="Resume from last saved progress")
-    p_import.add_argument("--github", metavar="OWNER/REPO", help="GitHub repo for PR/issue context (e.g. spring-projects/spring-petclinic)")
-    p_import.add_argument("--prepare", action="store_true",
-                          help="Extract methods and write prompt files (no API key needed)")
-    p_import.add_argument("--finalize", action="store_true",
-                          help="Read response files and generate final YAML output")
-
     args = parser.parse_args()
 
     if not args.command:
@@ -243,39 +217,6 @@ def main():
         print()
         print(ws_result.format_issues())
         sys.exit(1 if ws_result.has_errors() else 0)
-    elif args.command == "import-history":
-        if args.prepare:
-            cmd_import_history_prepare(
-                project_root,
-                branch=args.branch,
-                since=args.since,
-                until=args.until,
-                last=args.last,
-                github=args.github,
-                exclude_dirs=exclude_dirs,
-            )
-        elif args.finalize:
-            cmd_import_history_finalize(
-                project_root,
-                output_mode=args.output,
-            )
-        else:
-            cmd_import_history(
-                project_root,
-                branch=args.branch,
-                since=args.since,
-                until=args.until,
-                last=args.last,
-                output_mode=args.output,
-                provider=args.provider,
-                model=args.model,
-                concurrency=args.concurrency,
-                budget=args.budget,
-                dry_run=args.dry_run,
-                resume=args.resume,
-                github=args.github,
-                exclude_dirs=exclude_dirs,
-            )
 
 
 if __name__ == "__main__":

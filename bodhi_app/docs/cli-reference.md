@@ -63,84 +63,6 @@ git diff main...HEAD | bodhi impact-pr .         # Pipe diff via stdin
 - `order_created` event schema change will affect 1 downstream consumer(s)
 ```
 
-### `bodhi import-history [path]`
-
-Reverse-generate Bodhi DSL annotations from git history. Walks through commits, extracts method-level changes, calls AI
-to generate `@bodhi.*` tags for each method, and accumulates results into `.bodhi-import/` output files.
-
-```bash
-# Basic usage: analyze current repo's git history
-bodhi import-history .
-
-# Specify branch and time range
-bodhi import-history . --branch main --since 2024-01-01
-
-# Only analyze the last N commits
-bodhi import-history . --last 100
-
-# Dry run: show which commits and methods would be processed
-bodhi import-history . --dry-run
-
-# Use GitHub API for richer context (PR descriptions, issue bodies)
-bodhi import-history . --github owner/repo
-
-# Control AI provider and model
-bodhi import-history . --provider anthropic --model claude-sonnet-4-6
-bodhi import-history . --provider openai --model gpt-4o
-
-# Concurrency and cost control
-bodhi import-history . --concurrency 5   # Parallel API calls
-bodhi import-history . --budget 10.0     # Stop at $10 estimated cost
-
-# Resume after interruption
-bodhi import-history . --resume
-```
-
-**Options:**
-
-| Flag | Description |
-|------|-------------|
-| `--branch BRANCH` | Git branch to analyze (default: `main`) |
-| `--since DATE` | Only commits after this date (e.g. `2024-01-01`) |
-| `--until DATE` | Only commits before this date |
-| `--last N` | Only analyze the last N commits |
-| `--output {tags,inject}` | Output mode: `tags` (standalone files, default) or `inject` (into source, not yet implemented) |
-| `--provider {anthropic,openai}` | AI provider (default: `anthropic`) |
-| `--model MODEL` | AI model name override |
-| `--concurrency N` | Number of parallel API calls (default: 1) |
-| `--budget USD` | Budget cap in USD — stops processing when estimated cost reaches this limit |
-| `--dry-run` | Show what would be processed without calling AI |
-| `--resume` | Resume from last saved progress (state stored in `.bodhi-import/.state.json`) |
-| `--github OWNER/REPO` | GitHub repo for enhanced context — fetches PR descriptions and issue bodies via `gh` CLI |
-
-**How it works:**
-
-1. `CommitWalker` walks git log, filters out merge/docs/chore/style commits, keeps only commits that touch source files
-2. `DiffParser` extracts method-level changes (added/modified/deleted) from each commit's diff using `git show`
-3. `ContextCollector` (optional) fetches PR description and referenced issue bodies via GitHub API for richer context
-4. `PromptBuilder` assembles an AI prompt with commit message, PR context, and method code
-5. `LLMClient` calls Claude or GPT to generate `@bodhi.*` annotations as structured JSON
-6. `TagAccumulator` merges tags across commits — later commits override intent/reads/writes, `on_fail` accumulates
-7. `OutputWriter` writes per-class YAML files to `.bodhi-import/tags/` and a summary report
-
-**Output structure:**
-
-```
-.bodhi-import/
-├── tags/
-│   ├── OrderService.yaml
-│   ├── PaymentService.yaml
-│   └── ...
-├── summary.md
-└── .state.json          # Resume state (processed commits, stats)
-```
-
-**Requirements:**
-
-- `pip install anthropic` (for Anthropic provider) or `pip install openai` (for OpenAI provider)
-- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` environment variable set
-- `gh` CLI installed and authenticated (only if using `--github`)
-
 ### `bodhi serve [path]`
 
 Start a single-service MCP server for AI coding assistants. Exposes the project's knowledge graph via
@@ -206,8 +128,7 @@ cp bodhi_app/templates/ci/bodhi-impact-pr.yml /path/to/your-project/.github/work
 bodhi_app/
 ├── cli/
 │   ├── main.py            # Unified CLI entry point (assembles all commands)
-│   ├── impact_pr.py       # PR impact analysis
-│   └── import_history.py  # Git history DSL import pipeline
+│   └── impact_pr.py       # PR impact analysis
 ├── mcp/
 │   ├── server.py          # Single-service MCP server
 │   └── workspace_server.py # Federated multi-service MCP server
