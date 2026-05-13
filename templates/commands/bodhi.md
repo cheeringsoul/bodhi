@@ -2,13 +2,13 @@ Unified Bodhi DSL command. Execute according to the subcommand provided in $ARGU
 
 ## Subcommands
 
-| Subcommand             | Description                                                |
-|------------------------|------------------------------------------------------------|
+| Subcommand                     | Description                                                |
+|--------------------------------|------------------------------------------------------------|
 | `design <description or file>` | Design YAML skeleton for a new feature BEFORE writing code |
-| `init`                 | Initialize the .bodhi/ directory                           |
-| `scan <directory>`     | Scan source code and add @bodhi.* inline tags              |
-| `flows`                | Generate .bodhi/flows/*.yaml from existing inline tags     |
-| `concepts`             | Generate .bodhi/concepts/glossary.yaml                     |
+| `init`                         | Initialize the .bodhi/ directory                           |
+| `scan <directory>`             | Scan source code and add @bodhi.* inline tags              |
+| `flows`                        | Generate .bodhi/flows/*.yaml from existing inline tags     |
+| `concepts`                     | Generate .bodhi/concepts/glossary.yaml                     |
 
 Parse $ARGUMENTS to determine which subcommand to execute, then follow the corresponding rules below.
 
@@ -23,12 +23,14 @@ The argument after `design` can be either:
 1. **Inline description** — a natural language description of the feature
 2. **File path** — a path to a requirements document (`.md`, `.txt`, etc.)
 
-If the argument looks like a file path (contains `/` or `.` extension), read the file and use its content as the requirement. Otherwise treat it as an inline description.
+If the argument looks like a file path (contains `/` or `.` extension), read the file and use its content as the
+requirement. Otherwise treat it as an inline description.
 
 Examples:
 
 - `design 用户下单后扣库存冻结金额发order_created事件到Kafka`
-- `design Add a payment callback endpoint that receives webhook from payment gateway, updates order status, and notifies user`
+-
+`design Add a payment callback endpoint that receives webhook from payment gateway, updates order status, and notifies user`
 - `design docs/requirements/order-system.md`
 - `design ./PRD.md`
 
