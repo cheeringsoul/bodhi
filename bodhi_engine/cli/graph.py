@@ -77,8 +77,16 @@ def _escape_label(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def _classify_write(raw: str) -> tuple[str, bool]:
+def _normalize_rw(raw) -> str:
+    """Normalize a reads/writes entry to a string (handles dict format)."""
+    if isinstance(raw, dict):
+        return raw.get("detail") or raw.get("entity") or raw.get("table") or str(raw)
+    return raw
+
+
+def _classify_write(raw) -> tuple[str, bool]:
     """Return (entity_name, is_db). Strips parenthesized details."""
+    raw = _normalize_rw(raw)
     name = raw.split("(")[0].strip()
     # "inventory(stock) via UPDATE" -> strip " via ..." too
     if " via " in name:
@@ -132,7 +140,7 @@ def _build_flow_body(flow: Flow, declared: set[str],
             lines.append(f"    {fn_id} --> {call_id}")
 
         for read_raw in step.reads:
-            name = read_raw.split("(")[0].strip()
+            name = _normalize_rw(read_raw).split("(")[0].strip()
             if _is_non_db(name) or name.startswith("request"):
                 continue
             db_tables.add(name)

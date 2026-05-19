@@ -149,8 +149,8 @@ class TestDirectoryParser:
         # 3 from OrderService.java + 2 from OrderServiceImpl.java
         # + 2 from NotificationHandler.java + 2 from Python
         # + 2 from PaymentService.java + 2 from BatchProcessor.java
-        # + 1 from PhantomMethod.java = 14
-        assert len(functions) == 14
+        # + 1 from PhantomMethod.java + 3 from LogCheckService.java = 17
+        assert len(functions) == 17
 
     def test_skips_non_source_files(self):
         # Should not crash on non-source files in directory

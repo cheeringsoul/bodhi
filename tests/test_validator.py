@@ -147,3 +147,50 @@ public class FooImpl implements Foo {
         warnings = [i for i in issues if i.rule == "implements-missing-interface"]
         assert len(warnings) == 1
         assert "Foo" in warnings[0].message
+
+
+class TestLogPatternStale:
+
+    def test_matching_log_no_warning(self):
+        """processRefund has matching log statements — should NOT warn."""
+        issues = validate(FIXTURES)
+        stale = [i for i in issues if i.rule == "log-pattern-stale"]
+        assert not any("LogCheckService.processRefund" in i.message for i in stale)
+
+    def test_stale_pattern_warns(self):
+        """sendNotification's log was changed but tag wasn't — should warn."""
+        issues = validate(FIXTURES)
+        stale = [i for i in issues if i.rule == "log-pattern-stale"]
+        assert any(
+            "LogCheckService.sendNotification" in i.message
+            and "Notification sent" in i.message
+            for i in stale
+        )
+
+    def test_no_log_tags_skipped(self):
+        """syncInventory has no @bodhi.log tags — should NOT be checked."""
+        issues = validate(FIXTURES)
+        stale = [i for i in issues if i.rule == "log-pattern-stale"]
+        assert not any("LogCheckService.syncInventory" in i.message for i in stale)
+
+    def test_no_log_statements_warns(self):
+        """PaymentService.hold has @bodhi.log tags but empty body — should warn."""
+        issues = validate(FIXTURES)
+        stale = [i for i in issues if i.rule == "log-pattern-stale"]
+        assert any(
+            "PaymentService.hold" in i.message
+            and "no log statements" in i.message
+            for i in stale
+        )
+
+    def test_helper_pattern_static_fragments(self):
+        """_pattern_static_fragments extracts non-placeholder text."""
+        from bodhi_engine.validator.checker import _pattern_static_fragments
+        frags = _pattern_static_fragments('"Payment held: {txId} for order {orderId}"')
+        assert frags == ["Payment held:", "for order"]
+
+    def test_helper_pattern_all_placeholders(self):
+        """Pattern with only placeholders can't be validated — returns empty."""
+        from bodhi_engine.validator.checker import _pattern_static_fragments
+        frags = _pattern_static_fragments('"{userId}"')
+        assert frags == []

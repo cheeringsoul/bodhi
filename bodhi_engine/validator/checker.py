@@ -12,6 +12,7 @@ from pathlib import Path
 
 from ..config import load_config
 from ..parser import load_bodhi_dir, parse_directory
+from ..parser.inline import FUNCTION_PATTERNS
 
 
 class Severity(Enum):
@@ -51,6 +52,76 @@ def _extract_entity_name(tag_value: str) -> str | None:
         return val[:val.index("(")].strip()
     # No parens — take the first token
     return val.split()[0] if val else None
+
+
+# --- Log pattern consistency helpers ---
+
+# Regex to extract string literals from log statements across languages
+_LOG_CALL_PATTERN = re.compile(
+    r'(?:log(?:ger)?|LOG|logging|console|print[fl]?)'
+    r'(?:\.\w+)*'           # method chain like .log, .info, .error
+    r'\s*\('
+    r'[^"]*'               # skip non-string args (level enum, etc.)
+    r'"([^"]*)"',          # capture the first quoted string
+    re.IGNORECASE,
+)
+
+
+def _extract_log_strings(source_lines: list[str]) -> list[str]:
+    """Extract string literals from log statements in source code."""
+    results = []
+    for line in source_lines:
+        for m in _LOG_CALL_PATTERN.finditer(line):
+            results.append(m.group(1))
+    return results
+
+
+def _pattern_static_fragments(pattern: str) -> list[str]:
+    """Extract static text fragments from a @bodhi.log pattern.
+
+    "Payment held: {transactionId} for order {orderId}"
+    → ["Payment held:", "for order"]
+    """
+    raw = pattern.strip().strip('"').strip("'")
+    parts = re.split(r"\{[^}]*\}", raw)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _pattern_matches_any_log(pattern: str, log_strings: list[str]) -> bool:
+    """Check if a @bodhi.log pattern's static fragments appear in any log string."""
+    fragments = _pattern_static_fragments(pattern)
+    if not fragments:
+        return True  # pattern is all placeholders, can't validate
+    for log_str in log_strings:
+        if all(f.lower() in log_str.lower() for f in fragments):
+            return True
+    return False
+
+
+def _read_function_body(project_root: Path, fn) -> list[str] | None:
+    """Read source lines of a function body (up to 150 lines or next function)."""
+    file_path = project_root / fn.file_path
+    if not file_path.is_file():
+        return None
+
+    try:
+        all_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+
+    ext = file_path.suffix
+    fn_pattern = FUNCTION_PATTERNS.get(ext)
+    start = fn.line_number  # 1-based, body starts after declaration
+    end = min(len(all_lines), start + 150)
+
+    body_lines = []
+    for i in range(start, end):
+        # Stop if we hit another function declaration (not the current one)
+        if fn_pattern and i > start and fn_pattern.search(all_lines[i]):
+            break
+        body_lines.append(all_lines[i])
+
+    return body_lines
 
 
 def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[Issue]:
@@ -110,6 +181,40 @@ def validate(project_root: Path, exclude_dirs: set[str] | None = None) -> list[I
                         message=f"@bodhi.writes references entity '{entity}' not defined in .bodhi/entities/",
                         location=loc,
                     ))
+
+    # --- Log Pattern Consistency Checks ---
+
+    for fn in functions:
+        log_patterns = fn.log_success + fn.log_error
+        if not log_patterns:
+            continue
+
+        body_lines = _read_function_body(project_root, fn)
+        if body_lines is None:
+            continue
+
+        log_strings = _extract_log_strings(body_lines)
+        if not log_strings:
+            # Function has @bodhi.log tags but no log statements found at all
+            loc = f"{fn.file_path}:{fn.line_number}"
+            for pattern in log_patterns:
+                issues.append(Issue(
+                    severity=Severity.WARNING,
+                    rule="log-pattern-stale",
+                    message=f"Function '{fn.qualified_name}' @bodhi.log pattern '{pattern}' — no log statements found in function body",
+                    location=loc,
+                ))
+            continue
+
+        loc = f"{fn.file_path}:{fn.line_number}"
+        for pattern in log_patterns:
+            if not _pattern_matches_any_log(pattern, log_strings):
+                issues.append(Issue(
+                    severity=Severity.WARNING,
+                    rule="log-pattern-stale",
+                    message=f"Function '{fn.qualified_name}' @bodhi.log pattern '{pattern}' has no matching log statement in source code",
+                    location=loc,
+                ))
 
     # --- Flow Checks ---
 

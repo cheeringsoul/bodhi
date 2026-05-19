@@ -16,7 +16,8 @@ from bodhi_app.diagnose import diagnose_from_log
 
 mcp = FastMCP("bodhi", instructions=(
     "Bodhi DSL knowledge graph. Query flows, entities, events, "
-    "state machines, service dependencies, and diagnose issues from logs."
+    "state machines, service dependencies, diagnose issues from logs, "
+    "and read source code of annotated functions."
 ))
 
 _kb: BodhiKnowledge | None = None
@@ -212,6 +213,51 @@ def list_channels() -> str:
 def list_topologies() -> str:
     """List all available cross-service event topology names in this project."""
     return _json(_get_kb().list_topologies())
+
+
+# -- source code tool --
+
+@mcp.tool()
+def read_source(fn_name: str, context_lines: int = 30) -> str:
+    """Read the source code of a function by its qualified name.
+
+    Returns the file path, line number, and surrounding source code.
+    Use this after query_flow or trace_entity to inspect the actual implementation.
+
+    Args:
+        fn_name: Qualified function name (e.g. "OrderService.create"). Use list_flows + query_flow to discover names.
+        context_lines: Number of lines to read after the function definition (default 30).
+    """
+    kb = _get_kb()
+    fn = kb._fn_by_name.get(fn_name)
+    if not fn:
+        available = [f for f in kb._fn_by_name.keys() if fn_name.lower() in f.lower()]
+        if available:
+            return f"Function '{fn_name}' not found. Similar: {', '.join(available[:10])}"
+        return f"Function '{fn_name}' not found. Use query_flow or trace_entity to find function names."
+
+    file_path = kb.project_root / fn.file_path
+    if not file_path.is_file():
+        return f"Source file not found: {fn.file_path}"
+
+    lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    start = max(0, fn.line_number - 1)
+    end = min(len(lines), start + context_lines)
+    snippet = "\n".join(f"{i+1:4d} | {lines[i]}" for i in range(start, end))
+
+    return _json({
+        "fn": fn_name,
+        "file": fn.file_path,
+        "line": fn.line_number,
+        "tags": {
+            "intent": fn.intent,
+            "reads": fn.reads,
+            "writes": fn.writes,
+            "calls": fn.calls,
+            "emits": fn.emits,
+        },
+        "source": snippet,
+    })
 
 
 # -- diagnose tool --
