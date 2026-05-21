@@ -600,10 +600,12 @@ def parse_project_meta(data: dict) -> ProjectMeta:
 
 # --- Directory Loader ---
 
-def load_bodhi_dir(bodhi_dir: Path) -> dict[str, Any]:
+def load_bodhi_dir(bodhi_dir: Path, errors: list[str] | None = None) -> dict[str, Any]:
     """Load all YAML files from a .bodhi/ directory.
 
-    Returns a dict with keys: meta, flows, states, entities, concepts
+    Returns a dict with keys: meta, flows, states, entities, concepts.
+    If *errors* is provided, YAML parse failures are appended there
+    instead of raising.
     """
     result: dict[str, Any] = {
         "meta": None,
@@ -620,64 +622,118 @@ def load_bodhi_dir(bodhi_dir: Path) -> dict[str, Any]:
     # bodhi.yaml
     meta_file = bodhi_dir / "bodhi.yaml"
     if meta_file.exists():
-        with open(meta_file) as f:
-            result["meta"] = parse_project_meta(yaml.safe_load(f))
+        try:
+            with open(meta_file) as f:
+                result["meta"] = parse_project_meta(yaml.safe_load(f))
+        except Exception as e:
+            if errors is not None:
+                errors.append(f"{meta_file}: {e}")
+            else:
+                raise
 
     # flows/
     flows_dir = bodhi_dir / "flows"
     if flows_dir.is_dir():
         for f in sorted(flows_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["flows"].append(parse_flow(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["flows"].append(parse_flow(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # states/
     states_dir = bodhi_dir / "states"
     if states_dir.is_dir():
         for f in sorted(states_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["states"].append(parse_state_machine(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["states"].append(parse_state_machine(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # entities/
     entities_dir = bodhi_dir / "entities"
     if entities_dir.is_dir():
         for f in sorted(entities_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["entities"].append(parse_entity(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["entities"].append(parse_entity(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # services/
     services_dir = bodhi_dir / "services"
     if services_dir.is_dir():
         for f in sorted(services_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["services"].append(parse_service(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["services"].append(parse_service(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # events/
     events_dir = bodhi_dir / "events"
     if events_dir.is_dir():
         for f in sorted(events_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["events"].append(parse_event(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["events"].append(parse_event(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # concepts/
     concepts_dir = bodhi_dir / "concepts"
     if concepts_dir.is_dir():
         for f in sorted(concepts_dir.glob("*.yaml")):
-            with open(f) as fh:
-                data = yaml.safe_load(fh)
-                result["concepts"].extend(parse_concepts(data))
+            try:
+                with open(f) as fh:
+                    data = yaml.safe_load(fh)
+                    result["concepts"].extend(parse_concepts(data))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # channels/
     channels_dir = bodhi_dir / "channels"
     if channels_dir.is_dir():
         for f in sorted(channels_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["channels"].append(parse_channel(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["channels"].append(parse_channel(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     # topology/
     topology_dir = bodhi_dir / "topology"
     if topology_dir.is_dir():
         for f in sorted(topology_dir.glob("*.yaml")):
-            with open(f) as fh:
-                result["topologies"].append(parse_topology(yaml.safe_load(fh)))
+            try:
+                with open(f) as fh:
+                    result["topologies"].append(parse_topology(yaml.safe_load(fh)))
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f"{f}: {e}")
+                else:
+                    raise
 
     return result

@@ -466,7 +466,15 @@ def validate_consistency(project_root: Path, bodhi_dir: Optional[Path] = None,
         ))
         return report
 
-    yaml_data = load_bodhi_dir(bodhi_dir)
+    parse_errors: list[str] = []
+    yaml_data = load_bodhi_dir(bodhi_dir, errors=parse_errors)
+
+    for err_msg in parse_errors:
+        report.issues.append(ConsistencyIssue(
+            severity="error",
+            category="yaml-parse",
+            message=err_msg,
+        ))
 
     # --- Flow validation ---
     _validate_flows(functions, yaml_data.get("flows", []), report)
