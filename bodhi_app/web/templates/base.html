@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Bodhi{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: "default", maxTextSize: 100000, flowchart: { useMaxWidth: false } });</script>
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h1>Bodhi</h1>
+      <div class="project-name">{{ project_name }}</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">{{ t['nav.overview'] }}</div>
+      <a href="/" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+        {{ t['nav.dashboard'] }}
+      </a>
+      <a href="/graph" class="nav-link {% if active_page == 'graph' %}active{% endif %}">
+        {{ t['nav.full_graph'] }}
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">{{ t['nav.knowledge'] }}</div>
+      <a href="/flows" class="nav-link {% if active_page == 'flows' %}active{% endif %}">
+        {{ t['nav.flows'] }} <span class="nav-count">{{ nav_counts.flows }}</span>
+      </a>
+      <a href="/entities" class="nav-link {% if active_page == 'entities' %}active{% endif %}">
+        {{ t['nav.entities'] }} <span class="nav-count">{{ nav_counts.entities }}</span>
+      </a>
+      <a href="/services" class="nav-link {% if active_page == 'services' %}active{% endif %}">
+        {{ t['nav.services'] }} <span class="nav-count">{{ nav_counts.services }}</span>
+      </a>
+      <a href="/events" class="nav-link {% if active_page == 'events' %}active{% endif %}">
+        {{ t['nav.events'] }} <span class="nav-count">{{ nav_counts.events }}</span>
+      </a>
+      <a href="/states" class="nav-link {% if active_page == 'states' %}active{% endif %}">
+        {{ t['nav.state_machines'] }} <span class="nav-count">{{ nav_counts.states }}</span>
+      </a>
+    </div>
+    <div class="nav-section lang-switcher">
+      {% for l in langs %}
+        <a href="/set-lang/{{ l }}" class="lang-btn {% if l == lang %}active{% endif %}">{{ l.upper() }}</a>
+      {% endfor %}
+    </div>
+  </nav>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

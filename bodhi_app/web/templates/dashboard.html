@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+{% block title %}{{ t['dash.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['dash.title'] }}</h2>
+  <p>{{ t['dash.subtitle'].replace('{project}', project_name) }}</p>
+</div>
+
+<!-- Score + Dimensions -->
+<div class="grid grid-2 mb-1">
+  <!-- Score Gauge -->
+  <div class="card" style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
+    <div class="card-title">{{ t['dash.score_title'] }}</div>
+    <div class="score-ring">
+      {% set pct = (score.total / score.max * 100) | int %}
+      {% set offset = 440 - (440 * pct / 100) %}
+      {% if pct >= 80 %}
+        {% set ring_color = "var(--green)" %}
+      {% elif pct >= 50 %}
+        {% set ring_color = "var(--yellow)" %}
+      {% else %}
+        {% set ring_color = "var(--red)" %}
+      {% endif %}
+      <svg viewBox="0 0 160 160">
+        <circle class="ring-bg" cx="80" cy="80" r="70"/>
+        <circle class="ring-fill" cx="80" cy="80" r="70"
+                style="stroke: {{ ring_color }}; stroke-dashoffset: {{ offset }};"/>
+      </svg>
+      <div class="score-label">
+        <div class="number" style="color: {{ ring_color }}">{{ score.total }}</div>
+        <div class="max">/ {{ score.max }}</div>
+      </div>
+    </div>
+    <div class="score-explain">{{ t['dash.score_explain'] }}</div>
+  </div>
+
+  <!-- Dimensions -->
+  <div class="card">
+    <div class="card-title">{{ t['dash.dimensions_title'] }}</div>
+    {% set dim_keys = ['intent_coverage', 'dataflow', 'error_handling', 'call_chain', 'structural'] %}
+    {% for dim in score.dimensions %}
+      {% set dim_pct = (dim.score / dim.max * 100) | int %}
+      {% if dim_pct >= 80 %}
+        {% set bar_color = "var(--green)" %}
+      {% elif dim_pct >= 50 %}
+        {% set bar_color = "var(--yellow)" %}
+      {% else %}
+        {% set bar_color = "var(--red)" %}
+      {% endif %}
+      {% set dk = dim_keys[loop.index0] if loop.index0 < dim_keys|length else '' %}
+      <div class="dim-row">
+        <span class="dim-name">
+          {{ t.get('dim.' + dk, dim.name) }}
+          <span class="dim-help">?</span>
+        </span>
+        <div class="dim-bar">
+          <div class="dim-bar-fill" style="width: {{ dim_pct }}%; background: {{ bar_color }};"></div>
+        </div>
+        <span class="dim-score" style="color: {{ bar_color }}">{{ dim.score }}/{{ dim.max }}</span>
+      </div>
+      <div class="dim-desc">{{ t.get('dim.' + dk + '_desc', '') }}</div>
+      {% for reason in dim.reasons %}
+        <div class="dim-reason">{{ reason }}</div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Coverage Stats -->
+<div class="card mt-1">
+  <div class="card-title">{{ t['dash.tag_coverage_title'].replace('{count}', total_functions|string) }}</div>
+  <div class="card-subtitle mb-1">{{ t['dash.tag_coverage_subtitle'] }}</div>
+  <div class="tag-grid mt-1">
+    {% for tag_name, count in tag_stats.items() %}
+      {% set pct = ((count / total_functions * 100) | round(1)) if total_functions > 0 else 0 %}
+      <div class="tag-stat">
+        <div>
+          <span class="tag-name">@bodhi.{{ tag_name }}</span>
+          <div class="tag-desc">{{ t.get('tag.' + tag_name, '') }}</div>
+        </div>
+        <span>
+          <span class="tag-value">{{ count }}</span>
+          <span class="tag-pct">({{ pct }}%)</span>
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Quick Summary Cards -->
+<div class="grid grid-4 mt-1">
+  <a href="/flows" class="card link" style="text-decoration: none; color: inherit;">
+    <div class="card-title">{{ t['card.flows'] }}</div>
+    <div class="card-value color-accent">{{ nav_counts.flows }}</div>
+    <div class="card-subtitle">{{ t['card.flows_desc'] }}</div>
+  </a>
+  <a href="/entities" class="card link" style="text-decoration: none; color: inherit;">
+    <div class="card-title">{{ t['card.entities'] }}</div>
+    <div class="card-value color-green">{{ nav_counts.entities }}</div>
+    <div class="card-subtitle">{{ t['card.entities_desc'] }}</div>
+  </a>
+  <a href="/services" class="card link" style="text-decoration: none; color: inherit;">
+    <div class="card-title">{{ t['card.services'] }}</div>
+    <div class="card-value color-cyan">{{ nav_counts.services }}</div>
+    <div class="card-subtitle">{{ t['card.services_desc'] }}</div>
+  </a>
+  <a href="/events" class="card link" style="text-decoration: none; color: inherit;">
+    <div class="card-title">{{ t['card.events'] }}</div>
+    <div class="card-value color-purple">{{ nav_counts.events }}</div>
+    <div class="card-subtitle">{{ t['card.events_desc'] }}</div>
+  </a>
+</div>
+{% endblock %}

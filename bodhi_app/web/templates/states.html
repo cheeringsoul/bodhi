@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set active_page = "states" %}
+{% block title %}{{ t['states.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['states.title'] }}</h2>
+  <p>{{ t['states.subtitle'] }}</p>
+</div>
+
+{% for sm in state_machines %}
+<div class="card sm-card">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+      <h3 style="font-size: 1rem;">{{ sm.name }}</h3>
+      <div class="color-dim" style="font-size: 0.8rem;">
+        {{ sm.description }}
+        <br>entity: <a href="/entities/{{ sm.entity }}" class="link">{{ sm.entity }}</a>
+        · field: <code>{{ sm.field }}</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- States Grid -->
+  <div class="sm-states-grid mt-1">
+    {% for state in sm.states %}
+    <div class="sm-state {% if state.terminal %}terminal{% endif %}">
+      <strong>{{ state.id }}</strong>
+      {% if state.value is not none %}
+        <span class="color-dim" style="font-size: 0.75rem;">({{ state.value }})</span>
+      {% endif %}
+      <br>
+      <span style="font-size: 0.75rem; color: var(--text-dim);">{{ state.description }}</span>
+      {% if state.terminal %}
+        <br><span class="badge badge-terminal" style="margin-top: 0.2rem;">terminal</span>
+      {% elif state.transitions %}
+        <br><span style="font-size: 0.7rem; color: var(--text-dim);">{{ state.transitions }} transition(s)</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- State Diagram -->
+  {% if sm.mermaid %}
+  <div class="mermaid-container">
+    <pre class="mermaid">{{ sm.mermaid | safe }}</pre>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

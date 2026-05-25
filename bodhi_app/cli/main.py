@@ -13,6 +13,7 @@ Usage:
     bodhi show stats           Coverage dashboard (terminal)
     bodhi serve [<path>]       Start MCP server for AI coding assistants
     bodhi impact-pr [<path>]   Analyse git diff and produce PR impact report
+    bodhi web [<path>]         Start web dashboard (http://127.0.0.1:8500)
 """
 
 import argparse
@@ -146,6 +147,11 @@ def main():
     p_impact.add_argument("--base", metavar="REF", help="Base git ref (e.g. main, HEAD~3)")
     p_impact.add_argument("--head", metavar="REF", help="Head git ref (default: HEAD)")
 
+    p_web = subparsers.add_parser("web", help="Start web dashboard")
+    p_web.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_web.add_argument("--host", default="127.0.0.1", help="Bind address")
+    p_web.add_argument("--port", type=int, default=8500, help="Port number")
+
     p_workspace_validate = subparsers.add_parser(
         "workspace-validate",
         help="Validate cross-service consistency in a workspace",
@@ -213,6 +219,9 @@ def main():
             exclude_dirs=exclude_dirs,
         )
         print(md)
+    elif args.command == "web":
+        from bodhi_app.web.app import run_server
+        run_server(project_root, host=args.host, port=args.port)
     elif args.command == "workspace-validate":
         from bodhi_engine.workspace import load_workspace
         ws_result = load_workspace(project_root)

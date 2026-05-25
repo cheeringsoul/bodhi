@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% set active_page = "flows" %}
+{% block title %}{{ flow.name }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/flows">{{ t['nav.flows'] }}</a> / {{ flow.name }}
+</div>
+
+<div class="page-header">
+  <h2>{{ flow.name }}</h2>
+  <p>{{ flow.description }}</p>
+</div>
+
+<!-- Entry Info -->
+<div class="card mb-1">
+  <div class="card-title">{{ t['flow.entry_point'] }}</div>
+  <div style="display: flex; gap: 1.5rem; align-items: center; margin-top: 0.5rem;">
+    <div>
+      <span class="badge badge-{{ flow.entry.type }}">{{ flow.entry.type }}</span>
+      <strong style="margin-left: 0.5rem;">{{ flow.entry.method }} {{ flow.entry.path }}</strong>
+    </div>
+    {% if flow.entry.auth %}
+      <span class="color-dim" style="font-size: 0.85rem;">Auth: {{ flow.entry.auth }}</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <!-- Steps -->
+  <div class="card">
+    <div class="card-title">{{ t['flow.steps'] }} ({{ flow.steps | length }})</div>
+    <ul class="step-list mt-1">
+      {% for step in flow.steps %}
+      <li class="step-item">
+        <div class="step-fn">{{ step.fn }}</div>
+        <div class="step-intent">{{ step.intent }}</div>
+        <div class="step-tags">
+          {% if step.get("remote") %}
+            <span class="step-tag remote">{{ step.remote }} ({{ step.get("protocol", "?") }})</span>
+          {% endif %}
+          {% for r in step.reads %}
+            <span class="step-tag reads">reads: {{ r }}</span>
+          {% endfor %}
+          {% for w in step.writes %}
+            <span class="step-tag writes">writes: {{ w }}</span>
+          {% endfor %}
+          {% for c in step.calls %}
+            <span class="step-tag calls">calls: {{ c }}</span>
+          {% endfor %}
+          {% for e in step.emits %}
+            <span class="step-tag emits">emits: {{ e }}</span>
+          {% endfor %}
+          {% for f in step.on_fail %}
+            <span class="step-tag on_fail">on_fail: {{ f }}</span>
+          {% endfor %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- Diagram -->
+  <div class="card">
+    <div class="card-title">{{ t['flow.diagram'] }}</div>
+    {% if mermaid %}
+    <div class="mermaid-container">
+      <pre class="mermaid">{{ mermaid | safe }}</pre>
+    </div>
+    {% else %}
+    <p class="color-dim mt-1">{{ t['flow.no_diagram'] }}</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if flow.related_flows %}
+<div class="card mt-1">
+  <div class="card-title">{{ t['flow.related'] }}</div>
+  <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+    {% for rf in flow.related_flows %}
+      <a href="/flows/{{ rf }}" class="link">{{ rf }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% set active_page = "services" %}
+{% block title %}{{ t['services.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['services.title'] }}</h2>
+  <p>{{ t['services.subtitle'] }}</p>
+</div>
+
+<!-- Topology Diagram -->
+{% if topo_mermaid %}
+<div class="card mb-1">
+  <div class="card-title">{{ t['services.topology'] }}</div>
+  <div class="mermaid-container">
+    <pre class="mermaid">{{ topo_mermaid | safe }}</pre>
+  </div>
+</div>
+{% endif %}
+
+<!-- Service Cards -->
+<div class="grid grid-2">
+  {% for svc in services %}
+  <div class="card svc-card">
+    <h3>{{ svc.name }}</h3>
+    <div class="svc-meta">
+      {{ svc.description }}
+      {% if svc.tech_stack %}
+        <br>
+        {% for tech in svc.tech_stack %}
+          <span class="badge badge-default">{{ tech }}</span>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    {% if svc.apis %}
+    <div class="svc-section-title">{{ t['services.apis'] }}</div>
+    {% for api in svc.apis %}
+      <div class="svc-api-item">
+        {% set proto = api.protocol | lower %}
+        {% if proto in ['http', 'https'] %}
+          <span class="badge badge-http">{{ proto }}</span>
+          <span>{{ api.get("method", "") }} {{ api.get("path", "") }}</span>
+        {% elif proto == 'grpc' %}
+          <span class="badge badge-grpc">grpc</span>
+          <span>{{ api.get("service", "") }}/{{ api.get("method", "") }}</span>
+        {% elif proto in ['websocket', 'ws'] %}
+          <span class="badge badge-ws">ws</span>
+          <span>{{ api.get("channel", api.get("path", "")) }}</span>
+        {% else %}
+          <span class="badge badge-default">{{ proto }}</span>
+          <span>{{ api.get("method", "") or api.get("path", "") }}</span>
+        {% endif %}
+        {% if api.get("flow") %}
+          <a href="/flows/{{ api.flow }}" class="link" style="font-size: 0.75rem;">{{ api.flow }}</a>
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if svc.depends_on %}
+    <div class="svc-section-title">{{ t['services.dependencies'] }}</div>
+    {% for dep in svc.depends_on %}
+      <div class="svc-dep-item">
+        <span class="badge badge-{{ 'mq' if dep.protocol in ['mq', 'kafka', 'rabbitmq'] else dep.protocol | lower }}">{{ dep.protocol }}</span>
+        <strong>{{ dep.service }}</strong>
+        {% if dep.get("resilience") %}
+          <span class="color-dim" style="font-size: 0.7rem;">
+            {% for k, v in dep.resilience.items() %}{{ k }}={{ v }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </span>
+        {% endif %}
+      </div>
+      {% for api in dep.get("apis", []) %}
+        <div style="font-size: 0.75rem; color: var(--text-dim); padding-left: 1.5rem;">{{ api }}</div>
+      {% endfor %}
+      {% for topic in dep.get("topics", []) %}
+        <div style="font-size: 0.75rem; color: var(--purple); padding-left: 1.5rem;">{{ topic }}</div>
+      {% endfor %}
+    {% endfor %}
+    {% endif %}
+
+    {% if svc.depended_by %}
+    <div class="svc-section-title">{{ t['services.depended_by'] }}</div>
+    {% for dep in svc.depended_by %}
+      <div class="svc-dep-item">
+        <span class="badge badge-{{ dep.protocol | lower }}">{{ dep.protocol }}</span>
+        <strong>{{ dep.service }}</strong>
+      </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% set active_page = "flows" %}
+{% block title %}{{ t['flows.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['flows.title'] }}</h2>
+  <p>{{ t['flows.subtitle'] }}</p>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{{ t['flows.col_name'] }}</th>
+        <th>{{ t['flows.col_entry'] }}</th>
+        <th>{{ t['flows.col_auth'] }}</th>
+        <th>{{ t['flows.col_steps'] }}</th>
+        <th>{{ t['flows.col_entities'] }}</th>
+        <th>{{ t['flows.col_events'] }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for flow in flows %}
+      <tr>
+        <td><a href="/flows/{{ flow.name }}">{{ flow.name }}</a></td>
+        <td>
+          <span class="badge badge-http">{{ flow.entry.method }}</span>
+          {{ flow.entry.path }}
+        </td>
+        <td>
+          {% if flow.entry.auth %}
+            <span class="color-dim" style="font-size: 0.8rem;">{{ flow.entry.auth }}</span>
+          {% else %}
+            <span class="color-dim">—</span>
+          {% endif %}
+        </td>
+        <td>{{ flow.steps | length }}</td>
+        <td>
+          {% for e in flow.entities %}
+            <a href="/entities/{{ e }}" class="link" style="font-size: 0.8rem;">{{ e }}</a>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </td>
+        <td>
+          {% for e in flow.events %}
+            <span style="font-size: 0.8rem; color: var(--purple);">{{ e }}</span>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

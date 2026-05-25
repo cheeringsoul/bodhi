@@ -91,15 +91,20 @@ class ImpactResult:
 
 
 class BodhiKnowledge:
-    def __init__(self, project_root: Path, exclude_dirs: set[str] | None = None):
+    def __init__(self, project_root: Path, exclude_dirs: set[str] | None = None,
+                 lenient: bool = False):
         self.project_root = project_root
+        self.load_errors: list[str] = []
         bodhi_dir = project_root / ".bodhi"
 
         self.functions: list[FunctionDSL] = parse_directory(
             project_root, exclude_dirs=exclude_dirs,
         )
         self.dsl: dict[str, Any] = (
-            load_bodhi_dir(bodhi_dir) if bodhi_dir.is_dir() else {
+            load_bodhi_dir(
+                bodhi_dir,
+                errors=self.load_errors if lenient else None,
+            ) if bodhi_dir.is_dir() else {
                 "meta": None, "flows": [], "states": [],
                 "entities": [], "events": [], "services": [], "concepts": [],
                 "channels": [], "topologies": [],

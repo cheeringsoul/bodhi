@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% set active_page = "entities" %}
+{% block title %}{{ t['entities.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['entities.title'] }}</h2>
+  <p>{{ t['entities.subtitle'] }}</p>
+</div>
+
+{% for entity in entities %}
+<div class="card mb-1">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h3 style="font-size: 1rem;">
+        <a href="/entities/{{ entity.table }}" class="link">{{ entity.table }}</a>
+      </h3>
+      <div class="color-dim" style="font-size: 0.8rem;">{{ entity.description }}</div>
+      {% if entity.get("datasource") %}
+        <div class="color-dim" style="font-size: 0.75rem; margin-top: 0.15rem;">
+          datasource: {{ entity.datasource }}
+          {% if entity.get("database") %} ({{ entity.database }}){% endif %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="text-right">
+      <span class="color-dim" style="font-size: 0.8rem;">{{ entity.fields | length }} {{ t['entities.fields'] }}</span>
+      {% if entity.relations %}
+        <span class="color-dim" style="font-size: 0.8rem; margin-left: 0.5rem;">{{ entity.relations | length }} {{ t['entities.relations_count'] }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <table class="data-table mt-1">
+    <thead>
+      <tr>
+        <th>{{ t['entities.col_field'] }}</th>
+        <th>{{ t['entities.col_type'] }}</th>
+        <th>{{ t['entities.col_flags'] }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in entity.fields %}
+      <tr>
+        <td>{{ f.name }}</td>
+        <td><code style="font-size: 0.8rem; color: var(--cyan);">{{ f.type }}</code></td>
+        <td>
+          {% if f.get("primary_key") %}<span class="badge badge-pk">PK</span> {% endif %}
+          {% if f.sensitive %}<span class="badge badge-sensitive">sensitive</span> {% endif %}
+          {% if f.get("references") %}<span class="badge badge-fk">FK: {{ f.references }}</span> {% endif %}
+          {% if f.get("state_machine") %}<span class="badge badge-ws">SM: {{ f.state_machine }}</span> {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if entity.relations %}
+  <div style="margin-top: 0.75rem;">
+    <div class="card-title">{{ t['entities.relations'] }}</div>
+    {% for rel in entity.relations %}
+      <div style="font-size: 0.8rem; padding: 0.2rem 0; color: var(--text-dim);">
+        <span class="badge badge-default">{{ rel.type }}</span>
+        <a href="/entities/{{ rel.target }}" class="link" style="margin-left: 0.25rem;">{{ rel.target }}</a>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

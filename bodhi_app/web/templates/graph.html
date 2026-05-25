@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set active_page = "graph" %}
+{% block title %}{{ t['graph.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['graph.title'] }}</h2>
+  <p>{{ t['graph.subtitle'] }}</p>
+</div>
+
+<div class="card">
+  <div class="mermaid-container">
+    <pre class="mermaid">{{ mermaid | safe }}</pre>
+  </div>
+</div>
+{% endblock %}

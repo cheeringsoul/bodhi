@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% set active_page = "entities" %}
+{% block title %}{{ entity.entity }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/entities">{{ t['nav.entities'] }}</a> / {{ entity.entity }}
+</div>
+
+<div class="page-header">
+  <h2>{{ entity.entity }}</h2>
+  {% if entity.schema %}
+    <p>{{ entity.schema.description }}</p>
+  {% endif %}
+</div>
+
+{% if entity.schema %}
+<div class="card mb-1">
+  <div class="card-title">{{ t['entity.schema'] }}</div>
+  <table class="data-table mt-1">
+    <thead>
+      <tr>
+        <th>{{ t['entities.col_field'] }}</th>
+        <th>{{ t['entities.col_type'] }}</th>
+        <th>{{ t['entities.col_flags'] }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in entity.schema.fields %}
+      <tr>
+        <td>{{ f.name }}</td>
+        <td><code style="font-size: 0.8rem; color: var(--cyan);">{{ f.type }}</code></td>
+        <td>
+          {% if f.sensitive %}<span class="badge badge-sensitive">sensitive</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-title">{{ t['entity.reads'] }} ({{ entity.reads | length }})</div>
+    {% if entity.reads %}
+    <table class="data-table mt-1">
+      <thead><tr>
+        <th>{{ t['entity.col_function'] }}</th>
+        <th>{{ t['entity.col_context'] }}</th>
+        <th>{{ t['entity.col_detail'] }}</th>
+      </tr></thead>
+      <tbody>
+        {% for r in entity.reads %}
+        <tr>
+          <td style="color: var(--accent);">{{ r.fn }}</td>
+          <td>
+            {% if r.get("flow") %}
+              <a href="/flows/{{ r.flow }}" class="link">{{ r.flow }}</a>
+            {% elif r.get("file") %}
+              <span class="color-dim">{{ r.file }}</span>
+            {% endif %}
+          </td>
+          <td class="color-dim">{{ r.detail }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="color-dim mt-1" style="font-size: 0.85rem;">{{ t['entity.no_reads'] }}</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">{{ t['entity.writes'] }} ({{ entity.writes | length }})</div>
+    {% if entity.writes %}
+    <table class="data-table mt-1">
+      <thead><tr>
+        <th>{{ t['entity.col_function'] }}</th>
+        <th>{{ t['entity.col_context'] }}</th>
+        <th>{{ t['entity.col_detail'] }}</th>
+      </tr></thead>
+      <tbody>
+        {% for w in entity.writes %}
+        <tr>
+          <td style="color: var(--orange);">{{ w.fn }}</td>
+          <td>
+            {% if w.get("flow") %}
+              <a href="/flows/{{ w.flow }}" class="link">{{ w.flow }}</a>
+            {% elif w.get("file") %}
+              <span class="color-dim">{{ w.file }}</span>
+            {% endif %}
+          </td>
+          <td class="color-dim">{{ w.detail }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="color-dim mt-1" style="font-size: 0.85rem;">{{ t['entity.no_writes'] }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

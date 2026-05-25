@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set active_page = "events" %}
+{% block title %}{{ t['events.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['events.title'] }}</h2>
+  <p>{{ t['events.subtitle'] }}</p>
+</div>
+
+<div class="grid grid-2">
+  {% for evt in events %}
+  <div class="card evt-card">
+    <h3>{{ evt.event }}</h3>
+    <div class="evt-desc">
+      {{ evt.get("description", "") }}
+      {% if evt.get("channel") %}
+        <br><span style="font-size: 0.75rem;">channel: <code>{{ evt.channel }}</code></span>
+      {% endif %}
+    </div>
+
+    {% if evt.producers %}
+    <div class="svc-section-title">{{ t['events.producers'] }}</div>
+    {% for p in evt.producers %}
+      <div class="evt-endpoint">
+        <span class="fn">{{ p.fn }}</span>
+        {% if p.get("flow") %}
+          <span class="flow"> in <a href="/flows/{{ p.flow }}" class="link">{{ p.flow }}</a></span>
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if evt.consumers %}
+    <div class="svc-section-title">{{ t['events.consumers'] }}</div>
+    {% for c in evt.consumers %}
+      <div class="evt-endpoint">
+        <span class="fn">{{ c.fn }}</span>
+        {% if c.get("flow") %}
+          <span class="flow"> in <a href="/flows/{{ c.flow }}" class="link">{{ c.flow }}</a></span>
+        {% endif %}
+        {% if c.get("description") %}
+          <span class="flow"> — {{ c.description }}</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
