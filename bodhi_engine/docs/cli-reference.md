@@ -102,6 +102,25 @@ bodhi graph . -o diagram.svg               # Render to SVG (requires mmdc)
 Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli):
 `npm install -g @mermaid-js/mermaid-cli`
 
+### `bodhi arch [path]`
+
+Visualize the project's service topology in the terminal — one panel per service from `.bodhi/services/*.yaml`,
+followed by a flat list of service-to-service edges. Designed for a fast architectural overview without leaving the
+shell.
+
+Each service panel shows:
+
+- description, port, `tech_stack`
+- APIs with protocol tags (http=cyan, grpc=green, websocket=magenta, tcp=yellow, jsonrpc=blue)
+- `depends_on` edges with their protocol, `apis`/`topics`, and `resilience` policies (timeout / retry / circuit breaker)
+
+The topology section below lists every `src ──protocol──▶ dst` edge. Services defined in `.bodhi/services/` render in
+cyan; unknown dependencies (e.g. `kafka`, third-party services) render in yellow with an `(external)` tag.
+
+```bash
+bodhi arch .
+```
+
 ### `bodhi workspace-validate [path]`
 
 Validate cross-service consistency in a multi-service workspace. Scans all subdirectories for `.bodhi/` folders, merges
@@ -141,7 +160,8 @@ bodhi_engine/
 │   └── checker.py         # DSL completeness and consistency checks
 ├── cli/
 │   ├── graph.py           # Mermaid diagram generation
-│   └── show.py            # Terminal visualization (Rich)
+│   ├── show.py            # Terminal visualization for flows / coverage (Rich)
+│   └── arch.py            # Terminal visualization for service topology (Rich)
 ├── knowledge.py           # In-memory knowledge graph and query engine
 ├── deriver.py             # Scaffold YAML from inline tags
 └── workspace.py           # Multi-service workspace aggregation

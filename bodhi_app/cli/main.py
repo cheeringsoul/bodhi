@@ -8,6 +8,7 @@ Usage:
     bodhi score [<path>]       Compute AI-friendliness score (weighted, 0-100)
     bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags (scaffold)
     bodhi graph [<path>]       Generate Mermaid diagrams from flows
+    bodhi arch [<path>]        Visualize service topology in the terminal
     bodhi show flow [<name>]   Visualize a flow's call chain (terminal)
     bodhi show stats           Coverage dashboard (terminal)
     bodhi serve [<path>]       Start MCP server for AI coding assistants
@@ -25,6 +26,7 @@ from bodhi_engine.deriver import scaffold, validate_consistency
 from bodhi_engine.cli.graph import cmd_graph
 from bodhi_engine.cli.score import cmd_score
 from bodhi_engine.cli.show import cmd_show_flow, cmd_show_stats
+from bodhi_engine.cli.arch import cmd_arch
 from bodhi_app.cli.impact_pr import cmd_impact_pr
 
 
@@ -114,6 +116,9 @@ def main():
     p_graph.add_argument("--flow", metavar="NAME", help="Only graph a specific flow")
     p_graph.add_argument("-o", "--output", metavar="FILE", help="Render to file (svg/png/pdf) via mmdc")
 
+    p_arch = subparsers.add_parser("arch", help="Visualize service topology in the terminal")
+    p_arch.add_argument("path", nargs="?", default=".", help="Project root directory")
+
     # show subcommand with nested subparsers
     p_show = subparsers.add_parser("show", help="Terminal visualization of Bodhi DSL data")
     p_show.add_argument("-p", "--path", default=".", help="Project root directory")
@@ -176,6 +181,8 @@ def main():
         cmd_derive(project_root, exclude_dirs)
     elif args.command == "graph":
         cmd_graph(project_root, flow_name=args.flow, output=args.output)
+    elif args.command == "arch":
+        cmd_arch(project_root, exclude_dirs=exclude_dirs)
     elif args.command == "serve":
         from bodhi_app.mcp.server import mcp, init_knowledge
         init_knowledge(project_root, exclude_dirs=exclude_dirs)

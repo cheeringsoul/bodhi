@@ -208,6 +208,7 @@ Actions workflow.
 bodhi show -p <path> flow          # List all available flows
 bodhi show -p <path> flow <name>   # Visualize a flow's call chain (colored terminal output)
 bodhi show -p <path> stats         # Coverage dashboard with progress bars and completeness hints
+bodhi arch [path]                  # Service topology — services, APIs, dependencies (colored terminal)
 bodhi graph [path]                 # Generate Mermaid diagram for all flows (stdout)
 bodhi graph [path] --flow <name>   # Generate Mermaid diagram for a single flow
 bodhi graph [path] -o diagram.html # Render to HTML (zero dependencies, open in browser)
@@ -217,6 +218,10 @@ bodhi graph [path] -o diagram.svg  # Render to SVG/PNG/PDF (requires mmdc)
 `bodhi show flow` renders a color-coded call chain in the terminal — each step shows function name, intent,
 reads/writes, emits, on_fail, and cross-service calls. `bodhi show stats` displays a coverage dashboard with colored
 progress bars for each tag type and hints about missing annotations.
+
+`bodhi arch` renders the project's service topology in the terminal — one panel per service showing its APIs (with
+protocol tags: http/grpc/websocket/tcp) and `depends_on` edges (including resilience policies and Kafka topics),
+followed by a flat list of service-to-service edges with internal vs. external services color-coded.
 
 `bodhi graph` generates Mermaid diagrams with color-coded nodes: green for entry points, blue for functions, orange for
 database tables, purple for events, red dashed for remote calls. Rendering to SVG/PNG
