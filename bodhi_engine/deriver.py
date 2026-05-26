@@ -65,11 +65,18 @@ class ConsistencyReport:
     def is_consistent(self) -> bool:
         return len(self.errors) == 0
 
-    def summary(self) -> str:
+    def summary(self, errors_only: bool = False) -> str:
         if not self.issues:
             return "All consistent. No issues found."
-        lines = [f"{len(self.errors)} error(s), {len(self.warnings)} warning(s):"]
-        for issue in self.issues:
+        shown = self.errors if errors_only else self.issues
+        if errors_only and not shown:
+            suppressed = len(self.warnings)
+            return f"No errors. ({suppressed} warning(s) suppressed by --errors-only)"
+        header = f"{len(self.errors)} error(s), {len(self.warnings)} warning(s)"
+        if errors_only:
+            header += " (showing errors only)"
+        lines = [header + ":"]
+        for issue in shown:
             lines.append(f"  {issue}")
         return "\n".join(lines)
 

@@ -37,10 +37,11 @@ def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
     sys.exit(1 if any(i.severity.value == "error" for i in issues) else 0)
 
 
-def cmd_check(project_root: Path, exclude_dirs: set[str] | None = None):
+def cmd_check(project_root: Path, exclude_dirs: set[str] | None = None,
+              errors_only: bool = False):
     """Check consistency between inline tags and .bodhi/ YAML files."""
     report = validate_consistency(project_root, exclude_dirs=exclude_dirs)
-    print(report.summary())
+    print(report.summary(errors_only=errors_only))
     sys.exit(0 if report.is_consistent else 1)
 
 
@@ -97,6 +98,7 @@ def main():
 
     p_check = subparsers.add_parser("check", help="Check inline tags vs YAML consistency")
     p_check.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_check.add_argument("--errors-only", action="store_true", help="Suppress warnings, show only errors")
 
     p_stats = subparsers.add_parser("stats", help="Show coverage statistics")
     p_stats.add_argument("path", nargs="?", default=".", help="Project root directory")
@@ -178,7 +180,7 @@ def main():
     elif args.command == "validate":
         cmd_validate(project_root, exclude_dirs)
     elif args.command == "check":
-        cmd_check(project_root, exclude_dirs)
+        cmd_check(project_root, exclude_dirs, errors_only=args.errors_only)
     elif args.command == "stats":
         cmd_stats(project_root, exclude_dirs)
     elif args.command == "score":

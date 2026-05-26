@@ -9,6 +9,7 @@ Unified Bodhi DSL command. Execute according to the subcommand provided in $ARGU
 | `scan <directory>`             | Scan source code and add @bodhi.* inline tags              |
 | `flows`                        | Generate .bodhi/flows/*.yaml from existing inline tags     |
 | `concepts`                     | Generate .bodhi/concepts/glossary.yaml                     |
+| `verify [scope]`               | Self-report DSL written for recent changes + run check/validate |
 
 Parse $ARGUMENTS to determine which subcommand to execute, then follow the corresponding rules below.
 
@@ -258,3 +259,136 @@ Generate the business glossary.
 1. Read content from `.bodhi/states/` and `.bodhi/flows/`
 2. Extract key business terms (state meanings, business actions, domain concepts)
 3. Create or update `.bodhi/concepts/glossary.yaml`
+
+---
+
+## Subcommand: `verify [scope]`
+
+Self-report the Bodhi DSL written for the recent change, with evidence — then run `bodhi check` and `bodhi validate` so
+the user can confirm nothing was skipped. **Do not auto-fix gaps in this subcommand.** This is a checkpoint, not a fix.
+
+### When to use
+
+Run `verify` after finishing a feature/refactor/bug-fix that involved code changes. Typical triggers:
+
+- User says "are you sure you wrote all the DSL?"
+- After `/bodhi design` → implement → before committing
+- After `scan` / `flows` finishes a batch
+- Before opening a PR
+
+### Determining scope
+
+Parse `$ARGUMENTS` after `verify` to determine which changes to inspect:
+
+| Scope argument             | Meaning                                                            |
+|----------------------------|--------------------------------------------------------------------|
+| _(empty)_                  | Files you (the assistant) created/modified in the current task     |
+| `staged`                   | Files in `git diff --cached` (staged for next commit)              |
+| `uncommitted`              | Files in `git status` (staged + unstaged + untracked)              |
+| `since <ref>`              | Files in `git diff <ref>...HEAD` (e.g. `since main`, `since HEAD~3`) |
+| `<path> [<path> ...]`      | One or more explicit file/directory paths                          |
+
+If the scope is empty and you can't recall which files you touched this turn, fall back to `uncommitted` and tell the
+user which scope you used.
+
+### Step 1: Enumerate the changed surface
+
+List every source file and `.bodhi/*.yaml` file in scope. For source files, list every public function you
+added/modified in this scope. Skip exempted methods (getters/setters/constructors/utilities/tests — see CLAUDE.md).
+
+Output format:
+
+```
+Scope: <how scope was determined, e.g. "files modified in this turn">
+Source files (N):
+  - path/to/File.java
+      · ClassName.methodA   (new)
+      · ClassName.methodB   (modified)
+  - path/to/other.py
+      · module.func_x       (new)
+
+.bodhi/ files (M):
+  - .bodhi/flows/create_order.yaml      (new)
+  - .bodhi/entities/orders.yaml          (modified)
+  - .bodhi/events/order_created.yaml     (new)
+  - .bodhi/services/order-service.yaml   (modified)
+```
+
+### Step 2: Paste the actual DSL — no paraphrasing
+
+For each non-exempt function in scope, paste its `@bodhi.*` tag block verbatim from the file. Do NOT summarize, do NOT
+say "all tags added" — paste the raw text. If a function has no `@bodhi.*` block, write `(no @bodhi tags)` underneath it.
+
+```
+ClassName.methodA (path/to/File.java:42)
+    @bodhi.intent ...
+    @bodhi.reads ...
+    @bodhi.writes ...
+    @bodhi.calls ...
+    @bodhi.on_fail ...
+
+module.func_x (path/to/other.py:15)
+    (no @bodhi tags)
+```
+
+For each `.bodhi/*.yaml` file in scope, list the top-level entries you added/changed (flow name + step count, entity
+table + field count, event name + producer/consumer count, etc.). Do not paste the full YAML unless the file is small
+(< 30 lines).
+
+### Step 3: Run the engine checks
+
+Run these two commands and paste the **complete** output (do not truncate, do not summarize):
+
+```bash
+bodhi check . --errors-only
+bodhi validate .
+```
+
+`bodhi check` reports inline-tag vs `.bodhi/` YAML inconsistencies. `bodhi validate` reports completeness errors. If
+either command exits non-zero, that is a real failure — do not paper over it.
+
+`--errors-only` on `bodhi check` suppresses warnings (typically "entry point not in any flow YAML"). The summary line
+still shows the total warning count so you know how many were filtered. Drop `--errors-only` if you want the full list.
+
+### Step 4: Identify gaps — do not fix them
+
+Cross-reference what you pasted in Step 2 against the 6 self-check questions in CLAUDE.md ("Self-Check: 6 Questions
+Before Moving to Next Method"). For each function, list which expected tags are missing.
+
+Also flag:
+
+- Functions with `@bodhi.calls X` where `X` has no matching tags or YAML definition (dangling)
+- `@bodhi.emits E` / `@bodhi.consumes E` with no `.bodhi/events/E.yaml`
+- `@bodhi.reads/writes T` with no `.bodhi/entities/T.yaml` (unless `T` is `request`/`response`/`cache:*`/etc.)
+- For distributed projects: `@bodhi.calls ... via http/grpc` whose target service is not in `.bodhi/services/<name>.yaml`'s `depends_on`
+- New cross-service events not reflected in `.bodhi/topology/*.yaml`
+
+Output format:
+
+```
+Gaps (K):
+  [missing-tag]   OrderService.cancel — has DB write but no @bodhi.writes
+  [dangling-call] OrderService.create → @bodhi.calls FraudCheck.score: not tagged, not in any .bodhi/*.yaml
+  [missing-event] @bodhi.emits payment_completed: no .bodhi/events/payment_completed.yaml
+  [dep-missing]   @bodhi.calls FraudService.score via grpc: not in services/order-service.yaml depends_on
+```
+
+If there are zero gaps and both engine commands exited 0, say so explicitly: **"Verified — no gaps."**
+
+### Step 5: Ask before fixing
+
+Conclude with one of:
+
+- **No gaps**: "Verified — no gaps. Ready to commit."
+- **Has gaps**: "Found N gaps above. Want me to fix them now, or do you want to review first?"
+
+**Do NOT auto-fix.** The whole point of `verify` is to give the user a checkpoint. Wait for explicit "yes, fix them" or
+"yes, fix #1 and #3" before editing files.
+
+### IMPORTANT
+
+- Paste raw tag blocks and raw command output — do not paraphrase. The user is using this command precisely because
+  they don't trust a summary
+- If you can't determine scope, say so and ask — do not guess
+- Do not invent gaps. If something looks fine, say it's fine
+- Do not fix in this turn. Fixing is the next turn, after the user confirms

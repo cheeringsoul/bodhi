@@ -31,8 +31,12 @@ Check consistency between inline tags and `.bodhi/` YAML files. Compares what th
 calls, emits) against what the YAML flows, events, and entities describe.
 
 ```bash
-bodhi check .
+bodhi check .                # show errors + warnings
+bodhi check . --errors-only  # suppress warnings (summary line still shows totals)
 ```
+
+Exits non-zero only when errors are present — warnings never fail the command. Use `--errors-only` to cut through
+noisy "entry point not in any flow YAML" warnings when you only care about hard inconsistencies.
 
 ### `bodhi stats [path]`
 
