@@ -113,7 +113,7 @@ See [workspace-guide.md](workspace-guide.md) for workspace setup.
 
 Ready-to-use GitHub Actions workflow templates are in [`templates/ci/`](../templates/ci/):
 
-- **`bodhi-validate.yml`** — runs `bodhi validate` on every PR to check DSL completeness
+- **`bodhi-validate.yml`** — runs `bodhi lint` on every PR to check DSL completeness
 - **`bodhi-impact-pr.yml`** — runs `bodhi impact-pr` on every PR and posts the impact report as a comment
 
 Copy into your project's `.github/workflows/` directory:

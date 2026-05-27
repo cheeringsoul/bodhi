@@ -10,7 +10,7 @@ Developer describes requirements
      ↓
 AI writes code + generates DSL
      ↓
-bodhi validate (CLI / CI)
+bodhi lint (CLI / CI)
 ```
 
 ### Two-Layer Architecture

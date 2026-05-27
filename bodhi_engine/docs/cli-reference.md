@@ -7,9 +7,10 @@ work on inline `@bodhi.*` tags and `.bodhi/` YAML files directly — no knowledg
 
 All commands accept `--exclude DIR1 DIR2` to skip directories during scanning.
 
-### `bodhi validate [path]`
+### `bodhi lint [path]`
 
-Check DSL completeness and consistency. Exits with code 1 on errors — suitable as a CI gate.
+Run rule checks on Bodhi DSL — completeness, dangling references, missing definitions. Exits with code 1 on errors —
+suitable as a CI gate. (Previously named `bodhi validate`; the old name still works as a deprecated alias.)
 
 Checks include:
 
@@ -21,18 +22,20 @@ Checks include:
 - State machine transition functions not in any flow (info)
 
 ```bash
-bodhi validate .
-bodhi validate /path/to/project --exclude frontend admin-ui
+bodhi lint .
+bodhi lint /path/to/project --exclude frontend admin-ui
 ```
 
-### `bodhi check [path]`
+### `bodhi reconcile [path]`
 
-Check consistency between inline tags and `.bodhi/` YAML files. Compares what the inline tags declare (reads, writes,
-calls, emits) against what the YAML flows, events, and entities describe.
+Reconcile Layer 1 (inline `@bodhi.*` tags) against Layer 2 (`.bodhi/` YAML files). Compares what the inline tags
+declare (reads, writes, calls, emits) against what the YAML flows, events, and entities describe — flagging anything
+that is in one layer but missing or mismatched in the other. (Previously named `bodhi check`; the old name still works
+as a deprecated alias.)
 
 ```bash
-bodhi check .                # show errors + warnings
-bodhi check . --errors-only  # suppress warnings (summary line still shows totals)
+bodhi reconcile .                # show errors + warnings
+bodhi reconcile . --errors-only  # suppress warnings (summary line still shows totals)
 ```
 
 Exits non-zero only when errors are present — warnings never fail the command. Use `--errors-only` to cut through

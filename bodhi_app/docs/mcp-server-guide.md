@@ -243,7 +243,7 @@ python -m bodhi_engine.cli.main serve /path/to/your-project
 
 The server can't find or parse the `.bodhi/` directory. Check that:
 1. The path you passed to `bodhi serve` contains a `.bodhi/` directory
-2. The YAML files in `.bodhi/` are valid (run `bodhi validate /path/to/your-project` to check)
+2. The YAML files in `.bodhi/` are valid (run `bodhi lint /path/to/your-project` to check)
 
 ### Tools return empty results
 

@@ -164,27 +164,31 @@ Claude will produce the complete YAML skeleton (flows, entities, events, channel
 writing any code. Even if you skip `/bodhi design` and describe the feature directly, Claude will automatically run the
 design-first workflow — but the explicit command makes the intent clearer.
 
-### 3. Validate in CI (optional)
+### 3. Lint in CI (optional)
 
 ```bash
 pip install bodhi-engine
-bodhi validate .
+bodhi lint .
 ```
 
 ## CLI Reference
 
 All commands accept `--exclude DIR1 DIR2` to skip scanning certain directories.
 
-### Validation & Analysis
+### Lint & Reconcile
 
 ```bash
-bodhi validate [path]              # Check DSL completeness and consistency (CI gate, exit 1 on errors)
-bodhi check [path]                 # Check inline tags vs .bodhi/ YAML consistency
+bodhi lint [path]                  # Rule checks on inline tags + YAML (CI gate, exit 1 on errors)
+bodhi reconcile [path]             # Cross-layer check: inline @bodhi tags vs .bodhi/ YAML
+bodhi reconcile [path] --errors-only  # Suppress warnings, show only errors
 bodhi stats [path]                 # Output coverage statistics as JSON
 bodhi score [path]                 # Compute AI-friendliness score (0-100, exits 1 if <60)
 bodhi score [path] --json          # Same, JSON output for CI dashboards
 bodhi derive [path]                # Scaffold .bodhi/ YAML from inline tags (cold-start)
 ```
+
+> **Renamed from earlier versions:** `bodhi validate` → `bodhi lint`, `bodhi check` → `bodhi reconcile`. The old
+> names still work as deprecated aliases and print a one-line warning.
 
 `bodhi score` produces a weighted score across five dimensions (intent coverage, data-flow completeness, error handling, call-chain traceability, structural health), each with concrete reasons for any lost points. Suitable as a PR comment or README badge to track how AI-friendly a codebase is.
 
@@ -284,7 +288,7 @@ Copy the one you need into your project's `.github/workflows/` directory.
 cp bodhi/bodhi_app/templates/ci/bodhi-impact-pr.yml /path/to/your-project/.github/workflows/
 ```
 
-`bodhi validate` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or
+`bodhi lint` exits with code 1 on errors, suitable as a CI gate. `bodhi stats` outputs JSON for dashboards or
 coverage tracking.
 
 ## AI-Friendly Code Style

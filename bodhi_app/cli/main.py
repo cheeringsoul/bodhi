@@ -1,9 +1,9 @@
 """
-Bodhi CLI — validate Bodhi DSL completeness and consistency.
+Bodhi CLI — lint and reconcile Bodhi DSL completeness and consistency.
 
 Usage:
-    bodhi validate [<path>]    Check DSL completeness and consistency
-    bodhi check [<path>]       Check inline tags vs YAML consistency
+    bodhi lint [<path>]        Check DSL completeness (rules on inline tags + YAML)
+    bodhi reconcile [<path>]   Check inline tags vs YAML cross-layer consistency
     bodhi stats [<path>]       Show coverage statistics
     bodhi score [<path>]       Compute AI-friendliness score (weighted, 0-100)
     bodhi derive [<path>]      Derive Layer 2 YAML files from inline tags (scaffold)
@@ -14,6 +14,10 @@ Usage:
     bodhi serve [<path>]       Start MCP server for AI coding assistants
     bodhi impact-pr [<path>]   Analyse git diff and produce PR impact report
     bodhi web [<path>]         Start web dashboard (http://127.0.0.1:8500)
+
+Deprecated aliases (kept for backward compatibility):
+    bodhi validate  →  bodhi lint
+    bodhi check     →  bodhi reconcile
 """
 
 import argparse
@@ -31,15 +35,16 @@ from bodhi_engine.cli.arch import cmd_arch
 from bodhi_app.cli.impact_pr import cmd_impact_pr
 
 
-def cmd_validate(project_root: Path, exclude_dirs: set[str] | None = None):
+def cmd_lint(project_root: Path, exclude_dirs: set[str] | None = None):
+    """Run rule checks on Bodhi DSL: completeness, dangling refs, missing entities."""
     issues = validate(project_root, exclude_dirs=exclude_dirs)
     print(format_report(issues))
     sys.exit(1 if any(i.severity.value == "error" for i in issues) else 0)
 
 
-def cmd_check(project_root: Path, exclude_dirs: set[str] | None = None,
-              errors_only: bool = False):
-    """Check consistency between inline tags and .bodhi/ YAML files."""
+def cmd_reconcile(project_root: Path, exclude_dirs: set[str] | None = None,
+                  errors_only: bool = False):
+    """Reconcile Layer 1 (inline @bodhi tags) against Layer 2 (.bodhi/ YAML)."""
     report = validate_consistency(project_root, exclude_dirs=exclude_dirs)
     print(report.summary(errors_only=errors_only))
     sys.exit(0 if report.is_consistent else 1)
@@ -93,12 +98,20 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    p_validate = subparsers.add_parser("validate", help="Check DSL completeness and consistency")
-    p_validate.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_lint = subparsers.add_parser(
+        "lint",
+        aliases=["validate"],
+        help="Run rule checks on Bodhi DSL (completeness, dangling refs)",
+    )
+    p_lint.add_argument("path", nargs="?", default=".", help="Project root directory")
 
-    p_check = subparsers.add_parser("check", help="Check inline tags vs YAML consistency")
-    p_check.add_argument("path", nargs="?", default=".", help="Project root directory")
-    p_check.add_argument("--errors-only", action="store_true", help="Suppress warnings, show only errors")
+    p_reconcile = subparsers.add_parser(
+        "reconcile",
+        aliases=["check"],
+        help="Reconcile inline @bodhi tags against .bodhi/ YAML files",
+    )
+    p_reconcile.add_argument("path", nargs="?", default=".", help="Project root directory")
+    p_reconcile.add_argument("--errors-only", action="store_true", help="Suppress warnings, show only errors")
 
     p_stats = subparsers.add_parser("stats", help="Show coverage statistics")
     p_stats.add_argument("path", nargs="?", default=".", help="Project root directory")
@@ -177,10 +190,14 @@ def main():
         else:
             p_show.print_help()
         sys.exit(0)
-    elif args.command == "validate":
-        cmd_validate(project_root, exclude_dirs)
-    elif args.command == "check":
-        cmd_check(project_root, exclude_dirs, errors_only=args.errors_only)
+    elif args.command in ("lint", "validate"):
+        if args.command == "validate":
+            print("[deprecated] 'bodhi validate' is now 'bodhi lint'", file=sys.stderr)
+        cmd_lint(project_root, exclude_dirs)
+    elif args.command in ("reconcile", "check"):
+        if args.command == "check":
+            print("[deprecated] 'bodhi check' is now 'bodhi reconcile'", file=sys.stderr)
+        cmd_reconcile(project_root, exclude_dirs, errors_only=args.errors_only)
     elif args.command == "stats":
         cmd_stats(project_root, exclude_dirs)
     elif args.command == "score":

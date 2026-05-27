@@ -9,7 +9,7 @@ Unified Bodhi DSL command. Execute according to the subcommand provided in $ARGU
 | `scan <directory>`             | Scan source code and add @bodhi.* inline tags              |
 | `flows`                        | Generate .bodhi/flows/*.yaml from existing inline tags     |
 | `concepts`                     | Generate .bodhi/concepts/glossary.yaml                     |
-| `verify [scope]`               | Self-report DSL written for recent changes + run check/validate |
+| `audit [scope]`                | Self-report DSL written for recent changes + run lint/reconcile |
 
 Parse $ARGUMENTS to determine which subcommand to execute, then follow the corresponding rules below.
 
@@ -262,14 +262,16 @@ Generate the business glossary.
 
 ---
 
-## Subcommand: `verify [scope]`
+## Subcommand: `audit [scope]`
 
-Self-report the Bodhi DSL written for the recent change, with evidence — then run `bodhi check` and `bodhi validate` so
+Self-report the Bodhi DSL written for the recent change, with evidence — then run `bodhi reconcile` and `bodhi lint` so
 the user can confirm nothing was skipped. **Do not auto-fix gaps in this subcommand.** This is a checkpoint, not a fix.
+
+> Previously named `verify` — `/bodhi verify` still works but is deprecated; prefer `/bodhi audit`.
 
 ### When to use
 
-Run `verify` after finishing a feature/refactor/bug-fix that involved code changes. Typical triggers:
+Run `audit` after finishing a feature/refactor/bug-fix that involved code changes. Typical triggers:
 
 - User says "are you sure you wrote all the DSL?"
 - After `/bodhi design` → implement → before committing
@@ -278,7 +280,7 @@ Run `verify` after finishing a feature/refactor/bug-fix that involved code chang
 
 ### Determining scope
 
-Parse `$ARGUMENTS` after `verify` to determine which changes to inspect:
+Parse `$ARGUMENTS` after `audit` (or the legacy `verify`) to determine which changes to inspect:
 
 | Scope argument             | Meaning                                                            |
 |----------------------------|--------------------------------------------------------------------|
@@ -340,15 +342,17 @@ table + field count, event name + producer/consumer count, etc.). Do not paste t
 Run these two commands and paste the **complete** output (do not truncate, do not summarize):
 
 ```bash
-bodhi check . --errors-only
-bodhi validate .
+bodhi reconcile . --errors-only
+bodhi lint .
 ```
 
-`bodhi check` reports inline-tag vs `.bodhi/` YAML inconsistencies. `bodhi validate` reports completeness errors. If
-either command exits non-zero, that is a real failure — do not paper over it.
+`bodhi reconcile` reports inline-tag vs `.bodhi/` YAML inconsistencies (Layer 1 ↔ Layer 2 alignment). `bodhi lint`
+reports completeness errors (missing intent, dangling calls, missing entities). If either command exits non-zero, that
+is a real failure — do not paper over it.
 
-`--errors-only` on `bodhi check` suppresses warnings (typically "entry point not in any flow YAML"). The summary line
-still shows the total warning count so you know how many were filtered. Drop `--errors-only` if you want the full list.
+`--errors-only` on `bodhi reconcile` suppresses warnings (typically "entry point not in any flow YAML"). The summary
+line still shows the total warning count so you know how many were filtered. Drop `--errors-only` if you want the full
+list.
 
 ### Step 4: Identify gaps — do not fix them
 
@@ -382,7 +386,7 @@ Conclude with one of:
 - **No gaps**: "Verified — no gaps. Ready to commit."
 - **Has gaps**: "Found N gaps above. Want me to fix them now, or do you want to review first?"
 
-**Do NOT auto-fix.** The whole point of `verify` is to give the user a checkpoint. Wait for explicit "yes, fix them" or
+**Do NOT auto-fix.** The whole point of `audit` is to give the user a checkpoint. Wait for explicit "yes, fix them" or
 "yes, fix #1 and #3" before editing files.
 
 ### IMPORTANT

@@ -1,7 +1,7 @@
 # Add this to your .github/workflows/ directory
-# Validates Bodhi DSL completeness on every PR
+# Lints Bodhi DSL completeness on every PR
 
-name: Bodhi DSL Validate
+name: Bodhi DSL Lint
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ on:
       - '.bodhi/**'
 
 jobs:
-  validate:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,8 +27,8 @@ jobs:
       - name: Install bodhi-engine
         run: pip install bodhi-engine
 
-      - name: Validate DSL
-        run: bodhi validate .
+      - name: Lint DSL
+        run: bodhi lint .
 
       - name: DSL Coverage
         if: always()
