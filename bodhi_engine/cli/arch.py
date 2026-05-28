@@ -188,8 +188,15 @@ def cmd_arch(project_root: Path, exclude_dirs: set[str] | None = None) -> None:
         console.print(f"[red]No .bodhi/ directory found in {project_root}[/red]")
         sys.exit(1)
 
-    dsl = load_bodhi_dir(bodhi_dir)
+    parse_errors: list[str] = []
+    dsl = load_bodhi_dir(bodhi_dir, errors=parse_errors)
     services: list[Service] = dsl["services"]
+
+    if parse_errors:
+        console.print(f"[yellow]⚠ {len(parse_errors)} file(s) failed to parse — rendering what loaded:[/yellow]")
+        for err in parse_errors:
+            console.print(f"  [dim]{err}[/dim]")
+        console.print()
 
     if not services:
         console.print("[red]No services found in .bodhi/services/[/red]")

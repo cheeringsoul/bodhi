@@ -213,6 +213,7 @@ bodhi show -p <path> flow          # List all available flows
 bodhi show -p <path> flow <name>   # Visualize a flow's call chain (colored terminal output)
 bodhi show -p <path> stats         # Coverage dashboard with progress bars and completeness hints
 bodhi arch [path]                  # Service topology — services, APIs, dependencies (colored terminal)
+bodhi overview [path]              # High-level bird's-eye view (entry → flows → data/events/externals)
 bodhi graph [path]                 # Generate Mermaid diagram for all flows (stdout)
 bodhi graph [path] --flow <name>   # Generate Mermaid diagram for a single flow
 bodhi graph [path] -o diagram.html # Render to HTML (zero dependencies, open in browser)
@@ -226,6 +227,10 @@ progress bars for each tag type and hints about missing annotations.
 `bodhi arch` renders the project's service topology in the terminal — one panel per service showing its APIs (with
 protocol tags: http/grpc/websocket/tcp) and `depends_on` edges (including resilience policies and Kafka topics),
 followed by a flat list of service-to-service edges with internal vs. external services color-coded.
+
+`bodhi overview` renders a layered bird's-eye view for "what does this project look like at a glance" — top to bottom:
+Entry Points (HTTP/gRPC/WebSocket/MQ) → Flows → side-by-side Storage / Events / Externals. Lower density than `arch`,
+designed for onboarding and PR descriptions rather than service-level detail.
 
 `bodhi graph` generates Mermaid diagrams with color-coded nodes: green for entry points, blue for functions, orange for
 database tables, purple for events, red dashed for remote calls. Rendering to SVG/PNG

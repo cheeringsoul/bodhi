@@ -109,6 +109,28 @@ bodhi graph . -o diagram.svg               # Render to SVG (requires mmdc)
 Rendering to SVG/PNG requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli):
 `npm install -g @mermaid-js/mermaid-cli`
 
+### `bodhi overview [path]`
+
+High-level bird's-eye view of the project — answers "what does this project look like at a glance" without diving
+into individual service detail. Aggregates `.bodhi/` data into a layered diagram:
+
+```
+Entry Points  →  Flows  →  Storage / Events / Externals
+```
+
+- **Entry Points**: every `apis` entry from `.bodhi/services/*.yaml` plus any `entry` block from flow files (protocol-tagged: http/grpc/ws/mq/cron)
+- **Flows**: comma-separated list of flow names from `.bodhi/flows/`
+- **Storage**: entities grouped by `datasource`/`database`
+- **Events**: events grouped by channel (kafka:topic, internal, etc.)
+- **Externals**: `depends_on` services not owned by this workspace
+
+```bash
+bodhi overview .
+```
+
+Use `bodhi overview` for onboarding, PR descriptions, and "where do I add this feature". Use `bodhi arch` when you
+need service-level detail (APIs, resilience, dependencies).
+
 ### `bodhi arch [path]`
 
 Visualize the project's service topology in the terminal — one panel per service from `.bodhi/services/*.yaml`,
@@ -168,7 +190,8 @@ bodhi_engine/
 ├── cli/
 │   ├── graph.py           # Mermaid diagram generation
 │   ├── show.py            # Terminal visualization for flows / coverage (Rich)
-│   └── arch.py            # Terminal visualization for service topology (Rich)
+│   ├── arch.py            # Terminal visualization for service topology (Rich)
+│   └── overview.py        # Terminal visualization for layered project overview (Rich)
 ├── knowledge.py           # In-memory knowledge graph and query engine
 ├── deriver.py             # Scaffold YAML from inline tags
 └── workspace.py           # Multi-service workspace aggregation
