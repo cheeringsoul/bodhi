@@ -15,6 +15,9 @@ from bodhi_app.web.i18n import get_translations, SUPPORTED_LANGS, DEFAULT_LANG
 from bodhi_engine.knowledge import BodhiKnowledge
 from bodhi_engine.cli.score import ScoreReport, Dimension, _ratio_to_score, _is_remote_call, _fn_location, DIMENSION_MAX, TOTAL_MAX
 from bodhi_engine.cli.graph import flows_to_mermaid
+from bodhi_engine.cli.overview import (
+    collect_entries, group_entities_by_datasource, group_events_by_channel, collect_externals,
+)
 from bodhi_engine.parser import parse_directory
 from bodhi_engine.validator.checker import validate
 
@@ -199,6 +202,29 @@ def create_app(project_root: Path) -> FastAPI:
     @app.get("/api/impact/{target}")
     async def api_impact(target: str):
         return kb.impact_analysis(target)
+
+    # ── Project Overview ──────────────────────────────────────────────
+
+    @app.get("/overview", response_class=HTMLResponse)
+    async def overview(request: Request):
+        flows = kb.dsl["flows"]
+        entities = kb.dsl["entities"]
+        events = kb.dsl["events"]
+        services = kb.dsl["services"]
+
+        entries = collect_entries(flows, services)
+        storage = group_entities_by_datasource(entities)
+        events_by_channel = group_events_by_channel(events)
+        externals = collect_externals(services)
+
+        return templates.TemplateResponse(request, "overview.html", {
+            **_ctx(request),
+            "entries": entries,
+            "flow_names": [f.name for f in flows],
+            "storage": storage,
+            "events_by_channel": events_by_channel,
+            "externals": externals,
+        })
 
     # ── All-flows Mermaid ─────────────────────────────────────────────
 

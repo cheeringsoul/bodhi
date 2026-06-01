@@ -79,8 +79,11 @@ def _flow_entry_label(flow: Flow) -> str:
     return flow.entry_path or flow.entry_method or flow.entry_type
 
 
-def _collect_entries(flows: list[Flow], services: list[Service]) -> list[tuple[str, str, str]]:
-    """Return list of (protocol, label, flow_name). Dedup by (label, flow_name)."""
+def collect_entries(flows: list[Flow], services: list[Service]) -> list[tuple[str, str, str]]:
+    """Return list of (protocol, label, flow_name). Dedup by (label, flow_name).
+
+    Public — also consumed by bodhi_app/web/app.py for the web overview page.
+    """
     seen: set[tuple[str, str]] = set()
     out: list[tuple[str, str, str]] = []
 
@@ -105,6 +108,37 @@ def _collect_entries(flows: list[Flow], services: list[Service]) -> list[tuple[s
         out.append((flow.entry_type, label, flow.name))
 
     return out
+
+
+def group_entities_by_datasource(entities: list[Entity]) -> dict[str, list[str]]:
+    """Group entity table names by datasource (or database, or 'default')."""
+    groups: dict[str, list[str]] = defaultdict(list)
+    for e in entities:
+        key = e.datasource or e.database or "default"
+        groups[key].append(e.table)
+    return groups
+
+
+def group_events_by_channel(events: list[Event]) -> dict[str, list[str]]:
+    """Group event names by channel (kafka:topic / internal / etc)."""
+    groups: dict[str, list[str]] = defaultdict(list)
+    for e in events:
+        key = e.channel or "internal"
+        groups[key].append(e.name)
+    return groups
+
+
+def collect_externals(services: list[Service]) -> dict[str, str]:
+    """Return {service_name: protocol_or_type} for deps not owned by this workspace."""
+    known = {s.name for s in services}
+    externals: dict[str, str] = {}
+    for svc in services:
+        for dep in svc.depends_on:
+            if dep.service in known:
+                continue
+            tag = dep.protocol or dep.type or "?"
+            externals[dep.service] = tag
+    return externals
 
 
 def _entries_panel(entries: list[tuple[str, str, str]]) -> Panel:
@@ -149,18 +183,10 @@ def _flows_panel(flows: list[Flow]) -> Panel:
     )
 
 
-def _group_entities(entities: list[Entity]) -> dict[str, list[str]]:
-    groups: dict[str, list[str]] = defaultdict(list)
-    for e in entities:
-        key = e.datasource or e.database or "default"
-        groups[key].append(e.table)
-    return groups
-
-
 def _storage_panel(entities: list[Entity]) -> Panel | None:
     if not entities:
         return None
-    groups = _group_entities(entities)
+    groups = group_entities_by_datasource(entities)
     body = Text()
     for ds, tables in groups.items():
         body.append(ds, style="bold yellow")
@@ -178,18 +204,10 @@ def _storage_panel(entities: list[Entity]) -> Panel | None:
     )
 
 
-def _group_events(events: list[Event]) -> dict[str, list[str]]:
-    groups: dict[str, list[str]] = defaultdict(list)
-    for e in events:
-        key = e.channel or "internal"
-        groups[key].append(e.name)
-    return groups
-
-
 def _events_panel(events: list[Event]) -> Panel | None:
     if not events:
         return None
-    groups = _group_events(events)
+    groups = group_events_by_channel(events)
     body = Text()
     for ch, names in groups.items():
         body.append(ch, style="bold bright_magenta")
@@ -209,15 +227,7 @@ def _events_panel(events: list[Event]) -> Panel | None:
 
 def _externals_panel(services: list[Service]) -> Panel | None:
     """List services that this workspace depends on but does not own."""
-    known = {s.name for s in services}
-    externals: dict[str, str] = {}  # name → protocol/type
-    for svc in services:
-        for dep in svc.depends_on:
-            if dep.service in known:
-                continue
-            tag = dep.protocol or dep.type or "?"
-            externals[dep.service] = tag
-
+    externals = collect_externals(services)
     if not externals:
         return None
 
@@ -274,7 +284,7 @@ def cmd_overview(project_root: Path, exclude_dirs: set[str] | None = None) -> No
     ))
     console.print()
 
-    entries = _collect_entries(flows, services)
+    entries = collect_entries(flows, services)
     if entries:
         console.print(_entries_panel(entries))
         _arrow_down()

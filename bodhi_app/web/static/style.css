@@ -587,7 +587,60 @@ body {
 .color-yellow { color: var(--yellow); }
 .color-red { color: var(--red); }
 .color-accent { color: var(--accent); }
+.color-cyan { color: var(--cyan); }
+.color-purple { color: var(--purple); }
+.color-orange { color: var(--orange); }
 .color-dim { color: var(--text-dim); }
+
+/* ── /overview page ──────────────────────────────────── */
+.overview-arrow {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 1.25rem;
+  line-height: 1.2;
+  margin: 0.25rem 0 0.75rem;
+}
+.overview-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.overview-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.overview-entry-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+.overview-flow-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.overview-group {
+  margin-top: 0.6rem;
+}
+.overview-group:first-of-type {
+  margin-top: 0.25rem;
+}
+.overview-group-items {
+  display: flex;
+  flex-direction: column;
+  padding-left: 0.5rem;
+  margin-top: 0.2rem;
+}
+.overview-item {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  line-height: 1.5;
+}
+a.overview-item:hover {
+  color: var(--accent);
+}
 
 .text-right { text-align: right; }
 

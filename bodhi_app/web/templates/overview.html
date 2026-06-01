@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% set active_page = "overview" %}
+{% block title %}{{ t['overview.title'] }} — Bodhi{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ t['overview.title'] }}</h2>
+  <p>{{ t['overview.subtitle'] }}</p>
+</div>
+
+{# ── Map a protocol string to a CSS badge class ── #}
+{% macro proto_badge(proto) %}
+  {% set p = (proto or '') | lower %}
+  {% if p in ['http', 'https'] %}
+    <span class="badge badge-http">http</span>
+  {% elif p == 'grpc' %}
+    <span class="badge badge-grpc">grpc</span>
+  {% elif p in ['websocket', 'ws'] %}
+    <span class="badge badge-ws">ws</span>
+  {% elif p in ['mq', 'mq_consumer', 'kafka', 'rabbitmq', 'event'] %}
+    <span class="badge badge-mq">{{ 'mq' if p == 'mq_consumer' else p }}</span>
+  {% else %}
+    <span class="badge badge-default">{{ p }}</span>
+  {% endif %}
+{% endmacro %}
+
+<!-- ── Entry Points ───────────────────────────────────────────────── -->
+{% if entries %}
+<div class="card mb-1">
+  <div class="card-title">{{ t['overview.entry_points'] }} <span class="color-dim">({{ entries|length }})</span></div>
+  <div class="overview-entry-list">
+    {% for proto, label, flow in entries %}
+      <div class="overview-entry-row">
+        {{ proto_badge(proto) }}
+        <span class="overview-entry-label">{{ label }}</span>
+        {% if flow %}
+          <span class="color-dim">→</span>
+          <a href="/flows/{{ flow }}" class="link">{{ flow }}</a>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="overview-arrow">▼</div>
+{% endif %}
+
+<!-- ── Flows ──────────────────────────────────────────────────────── -->
+{% if flow_names %}
+<div class="card mb-1">
+  <div class="card-title">{{ t['overview.flows'] }} <span class="color-dim">({{ flow_names|length }})</span></div>
+  <div class="overview-flow-row">
+    {% for name in flow_names %}
+      <a href="/flows/{{ name }}" class="badge badge-default link">{{ name }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="overview-arrow">▼</div>
+{% endif %}
+
+<!-- ── Storage / Events / Externals ───────────────────────────────── -->
+<div class="grid grid-3">
+  {# Storage #}
+  {% if storage %}
+  <div class="card">
+    <div class="card-title color-orange">{{ t['overview.storage'] }}</div>
+    {% for ds, tables in storage.items() %}
+      <div class="overview-group">
+        <strong>{{ ds }}</strong>
+        <span class="color-dim">({{ tables|length }})</span>
+      </div>
+      <div class="overview-group-items">
+        {% for t in tables %}
+          <a href="/entities/{{ t }}" class="link overview-item">· {{ t }}</a>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Events #}
+  {% if events_by_channel %}
+  <div class="card">
+    <div class="card-title color-purple">{{ t['overview.events'] }}</div>
+    {% for ch, names in events_by_channel.items() %}
+      <div class="overview-group">
+        <strong>{{ ch }}</strong>
+        <span class="color-dim">({{ names|length }})</span>
+      </div>
+      <div class="overview-group-items">
+        {% for n in names %}
+          <div class="overview-item">· {{ n }}</div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Externals #}
+  {% if externals %}
+  <div class="card">
+    <div class="card-title color-red">{{ t['overview.externals'] }}</div>
+    {% for name, proto in externals.items() %}
+      <div class="overview-entry-row">
+        {{ proto_badge(proto) }}
+        <strong>{{ name }}</strong>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

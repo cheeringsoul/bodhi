@@ -7,6 +7,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Nav
         "nav.overview": "Overview",
         "nav.dashboard": "Dashboard",
+        "nav.project_overview": "Project Overview",
         "nav.full_graph": "Full Graph",
         "nav.knowledge": "Knowledge",
         "nav.flows": "Flows",
@@ -113,12 +114,22 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Graph page
         "graph.title": "All Flows",
         "graph.subtitle": "Mermaid diagram of all flows with entity and event relationships",
+
+        # Project overview page
+        "overview.title": "Project Overview",
+        "overview.subtitle": "Bird's-eye view: entry points → flows → storage / events / externals",
+        "overview.entry_points": "Entry Points",
+        "overview.flows": "Flows",
+        "overview.storage": "Storage",
+        "overview.events": "Events",
+        "overview.externals": "Externals",
     },
 
     "zh": {
         # Nav
         "nav.overview": "概览",
         "nav.dashboard": "仪表盘",
+        "nav.project_overview": "项目鸟瞰",
         "nav.full_graph": "全局图",
         "nav.knowledge": "知识库",
         "nav.flows": "调用流",
@@ -225,6 +236,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Graph page
         "graph.title": "全局图",
         "graph.subtitle": "所有调用流及实体、事件关系的 Mermaid 图",
+
+        # Project overview page
+        "overview.title": "项目鸟瞰",
+        "overview.subtitle": "入口 → 调用流 → 存储 / 事件 / 外部依赖",
+        "overview.entry_points": "入口点",
+        "overview.flows": "调用流",
+        "overview.storage": "存储",
+        "overview.events": "事件",
+        "overview.externals": "外部依赖",
     },
 }
 
