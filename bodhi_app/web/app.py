@@ -15,6 +15,7 @@ from bodhi_app.web.i18n import get_translations, SUPPORTED_LANGS, DEFAULT_LANG
 from bodhi_engine.knowledge import BodhiKnowledge
 from bodhi_engine.cli.score import ScoreReport, Dimension, _ratio_to_score, _is_remote_call, _fn_location, DIMENSION_MAX, TOTAL_MAX
 from bodhi_engine.cli.graph import flows_to_mermaid
+from bodhi_engine.cli.simplified import flows_to_simple_mermaid
 from bodhi_engine.cli.overview import (
     collect_entries, group_entities_by_datasource, group_events_by_channel, collect_externals,
 )
@@ -230,14 +231,66 @@ def create_app(project_root: Path) -> FastAPI:
 
     @app.get("/graph", response_class=HTMLResponse)
     async def graph_all(request: Request):
-        mermaid = flows_to_mermaid(kb.dsl["flows"], entities=kb.dsl["entities"])
+        # Rendering every flow into a single Mermaid diagram does not scale:
+        # past ~25 flows the dagre layout engine crashes ("Cannot set
+        # properties of undefined") and large diagrams also blow the
+        # maxTextSize limit. Split flows into render-safe groups instead —
+        # one diagram per group, selectable in the UI.
+        groups = _group_flows(kb.dsl["flows"], kb.dsl["entities"])
         return templates.TemplateResponse(request, "graph.html", {
             **_ctx(request),
-            "mermaid": mermaid,
+            "groups": groups,
             "title": "All Flows",
         })
 
     return app
+
+
+# Maximum number of flows rendered into a single Mermaid diagram. Past roughly
+# 25 flows the dagre layout engine used by Mermaid crashes on dense graphs, so
+# we keep each rendered chunk well under that ceiling.
+_MAX_FLOWS_PER_DIAGRAM = 15
+
+
+def _group_flows(flows: list, entities: list) -> list[dict]:
+    """Split flows into render-safe groups, one Mermaid diagram each.
+
+    Flows are first grouped by the leading segment of their name (the part
+    before the first '_', e.g. 'admin' for 'admin_dashboard'), which keeps
+    related flows together. Any group larger than ``_MAX_FLOWS_PER_DIAGRAM``
+    is further chunked so no single diagram exceeds the size at which Mermaid's
+    dagre layout engine becomes unstable.
+
+    Returns a list of dicts: {"id", "label", "count", "simple", "detailed"},
+    where ``simple`` is the data-centric summary diagram (default view) and
+    ``detailed`` is the full internal call-chain diagram.
+    """
+    from collections import OrderedDict
+
+    by_prefix: "OrderedDict[str, list]" = OrderedDict()
+    for flow in flows:
+        prefix = flow.name.split("_", 1)[0] if "_" in flow.name else flow.name
+        by_prefix.setdefault(prefix, []).append(flow)
+
+    groups: list[dict] = []
+    for prefix, prefix_flows in by_prefix.items():
+        # Chunk oversized prefixes so each diagram stays render-safe.
+        chunks = [
+            prefix_flows[i:i + _MAX_FLOWS_PER_DIAGRAM]
+            for i in range(0, len(prefix_flows), _MAX_FLOWS_PER_DIAGRAM)
+        ]
+        multi = len(chunks) > 1
+        for idx, chunk in enumerate(chunks, start=1):
+            label = f"{prefix} ({idx})" if multi else prefix
+            group_id = f"{prefix}_{idx}" if multi else prefix
+            groups.append({
+                "id": group_id,
+                "label": label,
+                "count": len(chunk),
+                "simple": flows_to_simple_mermaid(chunk, entities=entities),
+                "detailed": flows_to_mermaid(chunk, entities=entities),
+            })
+    return groups
 
 
 def _compute_score(functions, project_root: Path) -> ScoreReport:

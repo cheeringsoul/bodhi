@@ -114,6 +114,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Graph page
         "graph.title": "All Flows",
         "graph.subtitle": "Mermaid diagram of all flows with entity and event relationships",
+        "graph.group_hint": "Flows are grouped to keep each diagram render-safe. Pick a group to view its call graph.",
+        "graph.empty": "No flows found in .bodhi/flows/.",
+        "graph.mode_simple": "Simplified",
+        "graph.mode_detailed": "Detailed",
+        "graph.hint_simple": "Each endpoint linked to the data it reads/writes, events it emits, and external services it calls. Pick a module tab to switch groups.",
+        "graph.hint_detailed": "Full internal call chain for each flow. Denser — use for tracing a single request end to end.",
 
         # Project overview page
         "overview.title": "Project Overview",
@@ -236,6 +242,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         # Graph page
         "graph.title": "全局图",
         "graph.subtitle": "所有调用流及实体、事件关系的 Mermaid 图",
+        "graph.group_hint": "流程已分组，以保证每张图都能正常渲染。选择一个分组查看其调用图。",
+        "graph.empty": "在 .bodhi/flows/ 中未找到任何流程。",
+        "graph.mode_simple": "简化视图",
+        "graph.mode_detailed": "详细视图",
+        "graph.hint_simple": "每个接口连到它读写的数据表、发出的事件和调用的外部服务。点击模块标签切换分组。",
+        "graph.hint_detailed": "每条流程的完整内部调用链。更密集，适合端到端追踪单个请求。",
 
         # Project overview page
         "overview.title": "项目鸟瞰",

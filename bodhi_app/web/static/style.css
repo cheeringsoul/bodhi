@@ -448,6 +448,77 @@ body {
   min-width: 600px;
 }
 
+/* ── Graph page: grouped diagrams ─────────────── */
+
+.graph-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+.graph-mode {
+  display: inline-flex;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: var(--radius, 8px);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.mode-btn {
+  border: none;
+  background: var(--card-bg, #fff);
+  color: inherit;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.mode-btn + .mode-btn { border-left: 1px solid var(--border, #e0e0e0); }
+.mode-btn:hover { background: #f0f4f8; }
+.mode-btn.active { background: #42A5F5; color: #fff; }
+
+.graph-hint {
+  color: var(--text-muted, #888);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.graph-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.graph-tab {
+  border: 1px solid var(--border, #e0e0e0);
+  background: var(--card-bg, #fff);
+  color: inherit;
+  border-radius: var(--radius, 8px);
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.graph-tab:hover { border-color: #42A5F5; }
+
+.graph-tab.active {
+  background: #42A5F5;
+  border-color: #1565C0;
+  color: #fff;
+}
+
+.graph-tab.active .nav-count { color: #fff; }
+
+.graph-panel.hidden { display: none; }
+
+.graph-error {
+  color: #B71C1C;
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+}
+
 /* ── Flow Detail ──────────────────────────────── */
 
 .step-list { list-style: none; }

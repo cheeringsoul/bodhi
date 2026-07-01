@@ -8,9 +8,95 @@
   <p>{{ t['graph.subtitle'] }}</p>
 </div>
 
+{% if not groups %}
 <div class="card">
-  <div class="mermaid-container">
-    <pre class="mermaid">{{ mermaid | safe }}</pre>
-  </div>
+  <p>{{ t['graph.empty'] }}</p>
 </div>
+{% else %}
+<div class="card">
+  <div class="graph-toolbar">
+    <div class="graph-mode" role="group" aria-label="view mode">
+      <button class="mode-btn active" data-mode="simple">{{ t['graph.mode_simple'] }}</button>
+      <button class="mode-btn" data-mode="detailed">{{ t['graph.mode_detailed'] }}</button>
+    </div>
+    <p class="graph-hint" data-mode-hint="simple">{{ t['graph.hint_simple'] }}</p>
+    <p class="graph-hint hidden" data-mode-hint="detailed">{{ t['graph.hint_detailed'] }}</p>
+  </div>
+
+  <div class="graph-tabs">
+    {% for g in groups %}
+    <button class="graph-tab {% if loop.first %}active{% endif %}"
+            data-group="{{ g.id }}">{{ g.label }} <span class="nav-count">{{ g.count }}</span></button>
+    {% endfor %}
+  </div>
+
+  {% for g in groups %}
+  {# Sources kept in inert scripts so Mermaid's startOnLoad ignores them;
+     rendered on demand. Use |safe: inside a <script> the browser treats
+     content as raw text and does NOT decode entities, so escaping "-->" to
+     "--&gt;" would feed invalid arrows to Mermaid. Mermaid source never
+     contains "</script>", so this is safe. #}
+  <script type="text/plain" class="graph-src" data-group="{{ g.id }}" data-mode="simple">{{ g.simple | safe }}</script>
+  <script type="text/plain" class="graph-src" data-group="{{ g.id }}" data-mode="detailed">{{ g.detailed | safe }}</script>
+  <div class="graph-panel {% if not loop.first %}hidden{% endif %}" data-group="{{ g.id }}">
+    <div class="mermaid-container"></div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+  (function () {
+    const tabs = document.querySelectorAll('.graph-tab');
+    const panels = document.querySelectorAll('.graph-panel');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+    const hints = document.querySelectorAll('[data-mode-hint]');
+
+    // sources[group][mode] = mermaid text
+    const sources = {};
+    document.querySelectorAll('.graph-src').forEach(function (el) {
+      const g = el.dataset.group, m = el.dataset.mode;
+      (sources[g] = sources[g] || {})[m] = el.textContent;
+    });
+
+    let mode = 'simple';
+    let activeGroup = tabs.length ? tabs[0].dataset.group : null;
+    let counter = 0;
+
+    async function render(group) {
+      const panel = document.querySelector('.graph-panel[data-group="' + group + '"]');
+      const container = panel.querySelector('.mermaid-container');
+      const key = group + ':' + mode;
+      if (container.dataset.renderedKey === key) return;
+      const src = sources[group][mode];
+      try {
+        const { svg } = await mermaid.render('g_' + (counter++), src);
+        container.innerHTML = svg;
+        container.dataset.renderedKey = key;
+      } catch (e) {
+        container.innerHTML = '<pre class="graph-error">' + (e && e.message ? e.message : e) + '</pre>';
+        container.dataset.renderedKey = '';
+      }
+    }
+
+    function showGroup(group) {
+      activeGroup = group;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.group === group));
+      panels.forEach(p => p.classList.toggle('hidden', p.dataset.group !== group));
+      render(group);
+    }
+
+    function setMode(next) {
+      mode = next;
+      modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === next));
+      hints.forEach(h => h.classList.toggle('hidden', h.dataset.modeHint !== next));
+      if (activeGroup) render(activeGroup);
+    }
+
+    tabs.forEach(t => t.addEventListener('click', () => showGroup(t.dataset.group)));
+    modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+    if (activeGroup) showGroup(activeGroup);
+  })();
+</script>
+{% endif %}
 {% endblock %}

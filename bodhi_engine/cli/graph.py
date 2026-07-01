@@ -124,8 +124,11 @@ def _build_flow_body(flow: Flow, declared: set[str],
         fn_id = _sanitize_id(step.fn)
         if fn_id not in declared:
             if step.remote:
-                # Remote steps get a different shape (subroutine shape)
-                label = _escape_label(f"{step.fn}\n[{step.remote}]")
+                # Remote steps get a different shape (subroutine shape).
+                # Use Mermaid's <br/> for the line break — a raw "\n" inside a
+                # quoted label is treated as a statement separator and breaks
+                # the parser ("Syntax error in text").
+                label = _escape_label(f"{step.fn}<br/>[{step.remote}]")
                 lines.append(f'    {fn_id}[["{label}"]]')
                 remote_ids.append(fn_id)
             else:
